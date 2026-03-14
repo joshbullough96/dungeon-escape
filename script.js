@@ -546,7 +546,7 @@ function isTileVisible(x, y) {
     return true;
   }
 
-  return Math.abs(state.player.x - x) <= 1 && Math.abs(state.player.y - y) <= 1;
+  return Math.abs(state.player.x - x) <= 2 && Math.abs(state.player.y - y) <= 2;
 }
 
 function openSettingsModal() {
