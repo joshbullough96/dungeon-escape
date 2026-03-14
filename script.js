@@ -12,6 +12,7 @@ const boardEl = document.getElementById('board');
 const movesEl = document.getElementById('moves');
 const healthEl = document.getElementById('health');
 const hasKeyEl = document.getElementById('hasKey');
+const lootEl = document.getElementById('loot');
 const messageEl = document.getElementById('message');
 const restartBtn = document.getElementById('restartBtn');
 const newMapBtn = document.getElementById('newMapBtn');
@@ -64,12 +65,165 @@ const templates = [
 let state = null;
 let currentTemplateIndex = 0;
 let nextMapTimeoutId = null;
+let totalLoot = 0;
 
 function cloneTemplate(index) {
   return templates[index].map(row => row.split(''));
 }
 
-function buildState(index) {
+function getPositionKey(x, y) {
+  return `${x},${y}`;
+}
+
+function getRandomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function shuffle(items) {
+  const copy = [...items];
+
+  for (let index = copy.length - 1; index > 0; index--) {
+    const swapIndex = getRandomInt(0, index);
+    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+  }
+
+  return copy;
+}
+
+function findTilePosition(grid, targetTile) {
+  for (let y = 0; y < grid.length; y++) {
+    for (let x = 0; x < grid[y].length; x++) {
+      if (grid[y][x] === targetTile) {
+        return { x, y };
+      }
+    }
+  }
+
+  return null;
+}
+
+function getReachableData(grid, start, canOpenDoor) {
+  const queue = [{ x: start.x, y: start.y, distance: 0 }];
+  const visited = new Set([getPositionKey(start.x, start.y)]);
+  const distances = new Map([[getPositionKey(start.x, start.y), 0]]);
+  const directions = [
+    [0, -1],
+    [1, 0],
+    [0, 1],
+    [-1, 0]
+  ];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+
+    for (const [dx, dy] of directions) {
+      const nextX = current.x + dx;
+      const nextY = current.y + dy;
+      const nextTile = grid[nextY]?.[nextX];
+      const nextKey = getPositionKey(nextX, nextY);
+
+      if (!nextTile || visited.has(nextKey) || nextTile === TILE.WALL) {
+        continue;
+      }
+
+      if (nextTile === TILE.DOOR && !canOpenDoor) {
+        continue;
+      }
+
+      visited.add(nextKey);
+      distances.set(nextKey, current.distance + 1);
+      queue.push({ x: nextX, y: nextY, distance: current.distance + 1 });
+    }
+  }
+
+  return { visited, distances };
+}
+
+function getFloorPositions(grid, reachableKeys) {
+  const positions = [];
+
+  for (let y = 0; y < grid.length; y++) {
+    for (let x = 0; x < grid[y].length; x++) {
+      if (grid[y][x] !== TILE.FLOOR) {
+        continue;
+      }
+
+      const key = getPositionKey(x, y);
+      if (reachableKeys && !reachableKeys.has(key)) {
+        continue;
+      }
+
+      positions.push({ x, y });
+    }
+  }
+
+  return positions;
+}
+
+function chooseTreasurePositions(grid, player) {
+  const reachableWithoutDoor = getReachableData(grid, player, false).visited;
+  const reachableWithDoor = getReachableData(grid, player, true).visited;
+  const reachableFloors = getFloorPositions(grid, reachableWithDoor);
+  const exitPosition = findTilePosition(grid, TILE.EXIT);
+  const lockedAreaFloors = reachableFloors.filter(position => {
+    return !reachableWithoutDoor.has(getPositionKey(position.x, position.y));
+  });
+
+  let farFromExitFloors = [];
+  if (exitPosition) {
+    const distanceData = getReachableData(grid, exitPosition, true).distances;
+    const sortedByDistance = [...reachableFloors]
+      .map(position => ({
+        ...position,
+        distance: distanceData.get(getPositionKey(position.x, position.y)) ?? 0
+      }))
+      .sort((a, b) => b.distance - a.distance);
+    const farCount = Math.max(1, Math.ceil(sortedByDistance.length * 0.35));
+    farFromExitFloors = sortedByDistance.slice(0, farCount);
+  }
+
+  const desiredCount = Math.min(reachableFloors.length, getRandomInt(2, 3));
+  const chosenKeys = new Set();
+  const chosenPositions = [];
+
+  function takeRandomPosition(pool) {
+    const candidate = shuffle(pool).find(position => !chosenKeys.has(getPositionKey(position.x, position.y)));
+    if (!candidate) {
+      return;
+    }
+
+    chosenKeys.add(getPositionKey(candidate.x, candidate.y));
+    chosenPositions.push(candidate);
+  }
+
+  if (lockedAreaFloors.length > 0 && Math.random() < 0.65) {
+    takeRandomPosition(lockedAreaFloors);
+  }
+
+  if (farFromExitFloors.length > 0 && chosenPositions.length < desiredCount) {
+    takeRandomPosition(farFromExitFloors);
+  }
+
+  while (chosenPositions.length < desiredCount) {
+    const beforeCount = chosenPositions.length;
+    takeRandomPosition(reachableFloors);
+    if (chosenPositions.length === beforeCount) {
+      break;
+    }
+  }
+
+  return chosenPositions.map(position => ({
+    x: position.x,
+    y: position.y,
+    value: getRandomInt(15, 35)
+  }));
+}
+
+function getTreasureAt(x, y) {
+  return state.treasures.find(treasure => treasure.x === x && treasure.y === y) ?? null;
+}
+
+function buildState(index, loot = totalLoot) {
   const grid = cloneTemplate(index);
   let player = { x: 0, y: 0 };
 
@@ -82,11 +236,16 @@ function buildState(index) {
     }
   }
 
+  const treasures = chooseTreasurePositions(grid, player);
+
   return {
     grid,
     player,
     moves: 0,
     health: 3,
+    loot,
+    mapStartLoot: loot,
+    treasures,
     hasKey: false,
     gameOver: false,
     won: false,
@@ -109,10 +268,12 @@ function updateStats() {
   movesEl.textContent = state.moves;
   healthEl.textContent = state.health;
   hasKeyEl.textContent = state.hasKey ? 'Yes' : 'No';
+  lootEl.textContent = state.loot;
 }
 
-function getTileClass(tile, isPlayer) {
+function getTileClass(tile, isPlayer, treasure) {
   if (isPlayer) return 'player';
+  if (treasure) return 'treasure';
   switch (tile) {
     case TILE.WALL: return 'wall';
     case TILE.KEY: return 'key';
@@ -123,8 +284,9 @@ function getTileClass(tile, isPlayer) {
   }
 }
 
-function getTileSymbol(tile, isPlayer) {
+function getTileSymbol(tile, isPlayer, treasure) {
   if (isPlayer) return '\u{1F9D9}';
+  if (treasure) return '\u{1F4B0}';
   switch (tile) {
     case TILE.KEY: return '\u{1F5DD}\uFE0F';
     case TILE.DOOR: return '\u{1F6AA}';
@@ -144,9 +306,10 @@ function render() {
     for (let x = 0; x < cols; x++) {
       const tile = state.grid[y][x];
       const isPlayer = state.player.x === x && state.player.y === y;
+      const treasure = getTreasureAt(x, y);
       const tileEl = document.createElement('div');
-      tileEl.className = `tile revealed ${getTileClass(tile, isPlayer)}`;
-      tileEl.textContent = getTileSymbol(tile, isPlayer);
+      tileEl.className = `tile revealed ${getTileClass(tile, isPlayer, treasure)}`;
+      tileEl.textContent = getTileSymbol(tile, isPlayer, treasure);
       boardEl.appendChild(tileEl);
     }
   }
@@ -156,15 +319,16 @@ function render() {
 
 function restartCurrentMap() {
   clearNextMapTimeout();
-  state = buildState(state.templateIndex);
+  state = buildState(state.templateIndex, state.mapStartLoot);
   setMessage('You steady yourself and try again.');
   render();
 }
 
 function loadNewMap() {
   clearNextMapTimeout();
+  totalLoot = state ? state.loot : totalLoot;
   currentTemplateIndex = (currentTemplateIndex + 1) % templates.length;
-  state = buildState(currentTemplateIndex);
+  state = buildState(currentTemplateIndex, totalLoot);
   setMessage('A different dungeon layout appears from the shadows.');
   render();
 }
@@ -172,7 +336,7 @@ function loadNewMap() {
 function celebrateAndAdvance() {
   const completedMoves = state.moves;
   state.won = true;
-  setMessage(`Congratulations! You escaped this dungeon in ${completedMoves} moves. Entering the next map...`);
+  setMessage(`Congratulations! You escaped this dungeon in ${completedMoves} moves with ${state.loot} loot. Entering the next map...`);
   render();
 
   nextMapTimeoutId = setTimeout(() => {
@@ -189,6 +353,19 @@ function damagePlayer() {
   } else {
     setMessage(`A trap strikes you. ${state.health} health remaining.`);
   }
+}
+
+function collectTreasureAt(x, y) {
+  const treasure = getTreasureAt(x, y);
+
+  if (!treasure) {
+    return false;
+  }
+
+  state.treasures = state.treasures.filter(item => item !== treasure);
+  state.loot += treasure.value;
+  setMessage(`You pocket ${treasure.value} treasure. Total loot: ${state.loot}.`);
+  return true;
 }
 
 function movePlayer(dx, dy) {
@@ -211,6 +388,7 @@ function movePlayer(dx, dy) {
   state.player.x = nextX;
   state.player.y = nextY;
   state.moves += 1;
+  const collectedTreasure = collectTreasureAt(nextX, nextY);
 
   if (nextTile === TILE.KEY) {
     state.hasKey = true;
@@ -224,7 +402,8 @@ function movePlayer(dx, dy) {
     damagePlayer();
   } else if (nextTile === TILE.EXIT) {
     celebrateAndAdvance();
-  } else {
+    return;
+  } else if (!collectedTreasure) {
     setMessage('You move cautiously through the dungeon.');
   }
 

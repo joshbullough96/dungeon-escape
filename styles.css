@@ -6,6 +6,7 @@
   --floor: #2e3440;
   --player: #a1d1de;
   --key: #7d672d;
+  --treasure: #d9a534;
   --door: #672d33;
   --exit: #729796;
   --trap: #7c5143;
@@ -112,6 +113,7 @@ body {
 .tile.floor { background: var(--floor); } 
 .tile.player { background: var(--floor); }
 .tile.key { background: var(--key); }
+.tile.treasure { background: var(--treasure); color: #261700; }
 .tile.door { background: var(--door); }
 .tile.exit { background: var(--exit); color: #08353b; font-weight: bold; }
 .tile.trap { background: var(--trap); }
