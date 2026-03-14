@@ -296,6 +296,10 @@ function getTileSymbol(tile, isPlayer, treasure) {
   }
 }
 
+function isTileVisible(x, y) {
+  return Math.abs(state.player.x - x) <= 1 && Math.abs(state.player.y - y) <= 1;
+}
+
 function render() {
   const rows = state.grid.length;
   const cols = state.grid[0].length;
@@ -307,9 +311,12 @@ function render() {
       const tile = state.grid[y][x];
       const isPlayer = state.player.x === x && state.player.y === y;
       const treasure = getTreasureAt(x, y);
+      const isVisible = isTileVisible(x, y);
       const tileEl = document.createElement('div');
-      tileEl.className = `tile revealed ${getTileClass(tile, isPlayer, treasure)}`;
-      tileEl.textContent = getTileSymbol(tile, isPlayer, treasure);
+      tileEl.className = isVisible
+        ? `tile revealed ${getTileClass(tile, isPlayer, treasure)}`
+        : 'tile hidden';
+      tileEl.textContent = isVisible ? getTileSymbol(tile, isPlayer, treasure) : '';
       boardEl.appendChild(tileEl);
     }
   }

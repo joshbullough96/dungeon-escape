@@ -117,6 +117,10 @@ body {
 .tile.door { background: var(--door); }
 .tile.exit { background: var(--exit); color: #08353b; font-weight: bold; }
 .tile.trap { background: var(--trap); }
+.tile.hidden {
+  background: #06080d;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+}
 .tile.revealed:hover { transform: translateY(-1px); filter: brightness(1.04); }
 
 .sidebar {
