@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dungeon Escape</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="game-shell">
+    <div class="topbar">
+      <div class="title-wrap">
+        <h1>Dungeon Escape</h1>
+        <p>Find the key, unlock the door, and reach the exit.</p>
+      </div>
+
+      <div class="stats">
+        <div class="stat">Moves: <strong id="moves">0</strong></div>
+        <div class="stat">Health: <strong id="health">3</strong></div>
+        <div class="stat">Key: <strong id="hasKey">No</strong></div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="board-wrap">
+        <div id="board" aria-label="Dungeon board"></div>
+      </div>
+
+      <aside class="sidebar">
+        <section class="card">
+          <h2>How to Play</h2>
+          <div class="controls">
+            Use <strong>arrow keys</strong> or <strong>W A S D</strong> to move.<br>
+            Step on the <strong>key</strong>, then open the <strong>door</strong> and escape through the <strong>exit</strong>.
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Legend</h2>
+          <div class="legend">
+            <!-- <div class="legend-row"><span class="swatch" style="background:var(--floor)"></span> Player</div> -->
+            <div class="legend-row"><span class="swatch" style="background:var(--key)"></span> Key</div>
+            <div class="legend-row"><span class="swatch" style="background:var(--door)"></span> Locked Door</div>
+            <div class="legend-row"><span class="swatch" style="background:var(--exit)"></span> Exit</div>
+            <div class="legend-row"><span class="swatch" style="background:var(--trap)"></span> Trap</div>
+            <div class="legend-row"><span class="swatch" style="background:var(--wall)"></span> Wall</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Status</h2>
+          <div class="message" id="message">You wake in a dim dungeon. Escape is possible... if you can find the key.</div>
+          <div class="btn-row">
+            <button id="restartBtn">Restart</button>
+            <button id="newMapBtn" class="secondary">New Map</button>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
