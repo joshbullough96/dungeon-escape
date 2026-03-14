@@ -16,6 +16,11 @@ const lootEl = document.getElementById('loot');
 const messageEl = document.getElementById('message');
 const restartBtn = document.getElementById('restartBtn');
 const newMapBtn = document.getElementById('newMapBtn');
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsModal = document.getElementById('settingsModal');
+const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+const modalBackdrop = document.getElementById('modalBackdrop');
+const fogToggle = document.getElementById('fogToggle');
 
 const templates = [
   [
@@ -66,6 +71,9 @@ let state = null;
 let currentTemplateIndex = 0;
 let nextMapTimeoutId = null;
 let totalLoot = 0;
+const settings = {
+  fogOfWarEnabled: true
+};
 
 function cloneTemplate(index) {
   return templates[index].map(row => row.split(''));
@@ -297,7 +305,22 @@ function getTileSymbol(tile, isPlayer, treasure) {
 }
 
 function isTileVisible(x, y) {
+  if (!settings.fogOfWarEnabled) {
+    return true;
+  }
+
   return Math.abs(state.player.x - x) <= 1 && Math.abs(state.player.y - y) <= 1;
+}
+
+function openSettingsModal() {
+  settingsModal.classList.remove('hidden-modal');
+  settingsModal.setAttribute('aria-hidden', 'false');
+  fogToggle.checked = settings.fogOfWarEnabled;
+}
+
+function closeSettingsModal() {
+  settingsModal.classList.add('hidden-modal');
+  settingsModal.setAttribute('aria-hidden', 'true');
 }
 
 function render() {
@@ -418,6 +441,11 @@ function movePlayer(dx, dy) {
 }
 
 function handleKeydown(event) {
+  if (event.key === 'Escape' && !settingsModal.classList.contains('hidden-modal')) {
+    closeSettingsModal();
+    return;
+  }
+
   const key = event.key.toLowerCase();
   const moves = {
     arrowup: [0, -1],
@@ -438,6 +466,13 @@ function handleKeydown(event) {
 
 restartBtn.addEventListener('click', restartCurrentMap);
 newMapBtn.addEventListener('click', loadNewMap);
+settingsBtn.addEventListener('click', openSettingsModal);
+closeSettingsBtn.addEventListener('click', closeSettingsModal);
+modalBackdrop.addEventListener('click', closeSettingsModal);
+fogToggle.addEventListener('change', () => {
+  settings.fogOfWarEnabled = fogToggle.checked;
+  render();
+});
 window.addEventListener('keydown', handleKeydown);
 
 state = buildState(currentTemplateIndex);

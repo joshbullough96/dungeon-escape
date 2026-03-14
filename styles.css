@@ -74,6 +74,10 @@ body {
   min-width: 120px;
 }
 
+.settings-btn {
+  align-self: stretch;
+}
+
 .content {
   display: grid;
   grid-template-columns: 1fr 260px;
@@ -197,6 +201,66 @@ button {
 
 button:hover { transform: translateY(-1px); }
 button.secondary { background: #d8dee9; }
+
+.modal {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 20;
+}
+
+.hidden-modal {
+  display: none;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 8, 13, 0.72);
+}
+
+.modal-panel {
+  position: relative;
+  width: min(420px, calc(100vw - 32px));
+  background: var(--panel);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+  padding: 20px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.modal-close {
+  padding: 8px 12px;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0 4px;
+  color: var(--text);
+}
+
+.toggle-row input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--exit);
+}
 
 @media (max-width: 860px) {
   .content {
