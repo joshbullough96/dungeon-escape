@@ -513,6 +513,7 @@ function updateStats() {
   healthEl.textContent = state.health;
   hasKeyEl.textContent = state.hasKey ? 'Yes' : 'No';
   lootEl.textContent = state.loot;
+  newMapBtn.disabled = state.stageNumber >= STAGE_COUNT;
 }
 
 function getTileClass(tile, isPlayer, treasure) {
