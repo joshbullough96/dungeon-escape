@@ -37,6 +37,14 @@ body {
   overflow-x: hidden;
 }
 
+.game-shell,
+#board,
+button,
+.touch-btn {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .game-shell {
   width: min(980px, 100%);
   background: var(--panel);
