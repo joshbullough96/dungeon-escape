@@ -125,12 +125,14 @@ const legendMoreEl = document.getElementById('legendMore');
 const touchButtons = document.querySelectorAll('.touch-btn');
 const compactLayoutQuery = window.matchMedia('(max-width: 560px)');
 const mobileLegendQuery = window.matchMedia('(max-width: 860px)');
+const MOBILE_VIEWPORT_SIZE = 5;
+const MOBILE_DARKNESS_RADIUS = 1;
 
 let state = null;
 let currentStageIndex = 0;
 let nextStageTimeoutId = null;
 let totalLoot = 0;
-let compactBoardEnabled = compactLayoutQuery.matches;
+let mobileViewportEnabled = compactLayoutQuery.matches;
 let isStageTransitioning = false;
 
 const settings = {
@@ -414,7 +416,7 @@ function addRouteSegment(routeKeys, start, end) {
 function createStageGenerationContext() {
   return {
     TILE,
-    compactBoardEnabled,
+    compactBoardEnabled: false,
     createSeededRandom,
     getRandomInt,
     shuffle,
@@ -797,14 +799,39 @@ function isTileVisible(x, y) {
     return true;
   }
 
-  if (compactBoardEnabled) {
-    return x >= state.player.x - 1 &&
-      x <= state.player.x + 2 &&
-      y >= state.player.y - 1 &&
-      y <= state.player.y + 2;
+  if (mobileViewportEnabled) {
+    return Math.abs(state.player.x - x) <= MOBILE_DARKNESS_RADIUS &&
+      Math.abs(state.player.y - y) <= MOBILE_DARKNESS_RADIUS;
   }
 
   return Math.abs(state.player.x - x) <= 2 && Math.abs(state.player.y - y) <= 2;
+}
+
+function getViewportBounds() {
+  const rowCount = state.grid.length;
+  const colCount = state.grid[0].length;
+
+  if (!mobileViewportEnabled) {
+    return {
+      minX: 0,
+      maxX: colCount - 1,
+      minY: 0,
+      maxY: rowCount - 1
+    };
+  }
+
+  const radius = Math.floor(MOBILE_VIEWPORT_SIZE / 2);
+  const maxMinX = Math.max(0, colCount - MOBILE_VIEWPORT_SIZE);
+  const maxMinY = Math.max(0, rowCount - MOBILE_VIEWPORT_SIZE);
+  const minX = Math.min(Math.max(0, state.player.x - radius), maxMinX);
+  const minY = Math.min(Math.max(0, state.player.y - radius), maxMinY);
+
+  return {
+    minX,
+    maxX: Math.min(colCount - 1, minX + MOBILE_VIEWPORT_SIZE - 1),
+    minY,
+    maxY: Math.min(rowCount - 1, minY + MOBILE_VIEWPORT_SIZE - 1)
+  };
 }
 
 function openSettingsModal() {
@@ -837,13 +864,13 @@ function isTileActionable(tile, isVisible, adjacentMove) {
 }
 
 function render() {
-  const rows = state.grid.length;
-  const cols = state.grid[0].length;
-  boardEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  const viewport = getViewportBounds();
+  const visibleCols = viewport.maxX - viewport.minX + 1;
+  boardEl.style.gridTemplateColumns = `repeat(${visibleCols}, 1fr)`;
   boardEl.innerHTML = '';
 
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < cols; x++) {
+  for (let y = viewport.minY; y <= viewport.maxY; y++) {
+    for (let x = viewport.minX; x <= viewport.maxX; x++) {
       const tile = state.grid[y][x];
       const isPlayer = state.player.x === x && state.player.y === y;
       const lootItem = getLootItemAt(x, y);
@@ -1304,13 +1331,12 @@ touchButtons.forEach(button => {
   });
 });
 compactLayoutQuery.addEventListener('change', event => {
-  compactBoardEnabled = event.matches;
-  loadStage(
-    currentStageIndex,
-    state ? state.loot : totalLoot,
-    state ? state.health : 3,
-    `Screen size changed. Stage ${currentStageIndex + 1} has been resized for this device.`
-  );
+  mobileViewportEnabled = event.matches;
+  if (!state) {
+    return;
+  }
+
+  render();
 });
 mobileLegendQuery.addEventListener('change', syncLegendExpansion);
 window.addEventListener('keydown', handleKeydown);
