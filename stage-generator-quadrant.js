@@ -46,7 +46,8 @@
       getPositionKey,
       TILE,
       compactBoardEnabled,
-      canReachAll
+      canReachAll,
+      canReachAllWithProgression
     } = context;
     const rng = createSeededRandom(stageNumber * 1597334677);
     const profile = getQuadrantProfile(compactBoardEnabled);
@@ -215,20 +216,31 @@
       );
     }
 
+    const gridBeforeObstacles = grid.map(row => [...row]);
+
     attemptWallPlacement(
       grid,
       obstacleCandidates,
       Math.min(profile.obstacleAttempts + Math.floor(stageNumber / 8), Math.max(0, obstacleCandidates.length - 10)),
       [
-        { start, targets: unlockedTargets, canOpenDoor: true },
+        {
+          start,
+          targets: unlockedTargets,
+          validation: 'progression',
+          keyPositions,
+          doorPositions: barrierDoors
+        },
         { start, targets: [keyPositions[0]], canOpenDoor: false }
       ],
       rng
     );
 
-    if (!canReachAll(grid, start, [keyPositions[0]], false) || !canReachAll(grid, start, unlockedTargets, true)) {
-      for (const candidate of obstacleCandidates) {
-        grid[candidate.y][candidate.x] = TILE.FLOOR;
+    if (
+      !canReachAll(grid, start, [keyPositions[0]], false) ||
+      !canReachAllWithProgression(grid, start, keyPositions, barrierDoors, unlockedTargets)
+    ) {
+      for (let rowIndex = 0; rowIndex < grid.length; rowIndex++) {
+        grid[rowIndex] = [...gridBeforeObstacles[rowIndex]];
       }
     }
 

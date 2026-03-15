@@ -146,7 +146,13 @@
       corridorWallAttempts,
       [
         { start, targets: [keyPositions[0], leftDoorApproach], canOpenDoor: false },
-        { start, targets: unlockedTargets, canOpenDoor: true }
+        {
+          start,
+          targets: unlockedTargets,
+          validation: 'progression',
+          keyPositions,
+          doorPositions: barrierDoors
+        }
       ],
       rng
     );
@@ -156,7 +162,13 @@
       rightCandidates,
       rightWallAttempts,
       [
-        { start, targets: unlockedTargets, canOpenDoor: true }
+        {
+          start,
+          targets: unlockedTargets,
+          validation: 'progression',
+          keyPositions,
+          doorPositions: barrierDoors
+        }
       ],
       rng
     );

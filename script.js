@@ -307,6 +307,11 @@ function canReachAll(grid, start, targets, canOpenDoor) {
   return targets.every(target => visited.has(getPositionKey(target.x, target.y)));
 }
 
+function canReachAllWithProgression(grid, start, keyPositions, doorPositions, targets) {
+  const visited = getProgressionReachableData(grid, start, keyPositions, doorPositions).visited;
+  return targets.every(target => visited.has(getPositionKey(target.x, target.y)));
+}
+
 function chooseFarthestPosition(grid, start, filterFn, rng) {
   const distances = getReachableData(grid, start, true).distances;
   const candidates = [];
@@ -345,6 +350,16 @@ function attemptWallPlacement(grid, candidates, attempts, connectivityChecks, rn
     grid[position.y][position.x] = TILE.WALL;
 
     const isSafe = connectivityChecks.every(check => {
+      if (check.validation === 'progression') {
+        return canReachAllWithProgression(
+          grid,
+          check.start,
+          check.keyPositions,
+          check.doorPositions,
+          check.targets
+        );
+      }
+
       return canReachAll(grid, check.start, check.targets, check.canOpenDoor);
     });
 
@@ -382,6 +397,7 @@ function createStageGenerationContext() {
     createGrid,
     getReachableData,
     canReachAll,
+    canReachAllWithProgression,
     chooseFarthestPosition,
     attemptWallPlacement,
     addRouteSegment,
@@ -721,9 +737,13 @@ function updateEffectStatus() {
     active.push(`Burning (${state.burnTicks})`);
   }
 
-  effectStatusEl.innerHTML = active
-    .map(effect => `<span class="effect-pill">${effect}</span>`)
-    .join('');
+  effectStatusEl.innerHTML = '';
+  active.forEach(effect => {
+    const pill = document.createElement('span');
+    pill.className = 'effect-pill';
+    pill.textContent = effect;
+    effectStatusEl.appendChild(pill);
+  });
   effectStatusEl.classList.toggle('hidden-effects', active.length === 0);
 }
 

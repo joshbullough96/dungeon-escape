@@ -1,17 +1,16 @@
 (function () {
   const registry = window.StageGenerationRegistry = window.StageGenerationRegistry || {};
+  const generationSchedule = [
+    { every: 10, method: 'template-looting' },
+    { every: 5, method: 'template' },
+    { every: 3, method: 'quadrant' }
+  ];
 
   function getGenerationMethod(stageNumber) {
-    if (stageNumber % 10 === 0) {
-      return 'template-looting';
-    }
-
-    if (stageNumber % 5 === 0) {
-      return 'template';
-    }
-
-    if (stageNumber % 3 === 0) {
-      return 'quadrant';
+    for (const rule of generationSchedule) {
+      if (stageNumber % rule.every === 0) {
+        return rule.method;
+      }
     }
 
     return 'linear';
