@@ -92,8 +92,10 @@ const settingsModal = document.getElementById('settingsModal');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 const modalBackdrop = document.getElementById('modalBackdrop');
 const fogToggle = document.getElementById('fogToggle');
+const legendMoreEl = document.getElementById('legendMore');
 const touchButtons = document.querySelectorAll('.touch-btn');
 const compactLayoutQuery = window.matchMedia('(max-width: 560px)');
+const mobileLegendQuery = window.matchMedia('(max-width: 860px)');
 
 let state = null;
 let currentStageIndex = 0;
@@ -110,6 +112,14 @@ const effectTimeoutIds = {
 const settings = {
   fogOfWarEnabled: true
 };
+
+function syncLegendExpansion() {
+  if (!legendMoreEl) {
+    return;
+  }
+
+  legendMoreEl.open = !mobileLegendQuery.matches;
+}
 
 function createSeededRandom(seed) {
   let value = seed >>> 0;
@@ -592,10 +602,6 @@ function getHazardAt(x, y) {
 function buildState(index, loot = totalLoot, health = 3) {
   const stageNumber = index + 1;
   const stageData = StageGeneration.createStageData(stageNumber, createStageGenerationContext());
-  console.info(
-    `[Stage ${stageNumber}] method=${stageData.method}` +
-    (stageData.templateId ? ` template=${stageData.templateId}` : '')
-  );
   const grid = stageData.rows.map(row => row.split(''));
   const reservedKeys = new Set(stageData.reservedKeys);
   let player = { x: 0, y: 0 };
@@ -715,9 +721,10 @@ function updateEffectStatus() {
     active.push(`Burning (${state.burnTicks})`);
   }
 
-  effectStatusEl.textContent = active.length > 0
-    ? `Active: ${active.join(' | ')}`
-    : 'No active effects.';
+  effectStatusEl.innerHTML = active
+    .map(effect => `<span class="effect-pill">${effect}</span>`)
+    .join('');
+  effectStatusEl.classList.toggle('hidden-effects', active.length === 0);
 }
 
 function updateStats() {
@@ -1181,6 +1188,8 @@ compactLayoutQuery.addEventListener('change', event => {
     `Screen size changed. Stage ${currentStageIndex + 1} has been resized for this device.`
   );
 });
+mobileLegendQuery.addEventListener('change', syncLegendExpansion);
 window.addEventListener('keydown', handleKeydown);
 
+syncLegendExpansion();
 loadStage(currentStageIndex, totalLoot, 3);

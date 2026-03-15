@@ -26,6 +26,13 @@
 
     <div class="content">
       <div class="board-wrap">
+        <section class="card status-card">
+          <div class="status-copy">
+            <div class="status-label">Status</div>
+            <div class="message" id="message">You wake in a dim dungeon. Escape is possible... if you can find the key.</div>
+          </div>
+        </section>
+        <div class="effect-toast hidden-effects" id="effectStatus" aria-live="polite"></div>
         <div id="board" aria-label="Dungeon board"></div>
         <div class="touch-controls" aria-label="Touch movement controls">
           <button class="touch-btn touch-up" type="button" data-move="up" aria-label="Move up">▲</button>
@@ -58,7 +65,7 @@
               <div class="legend-row"><span class="swatch" style="background:var(--trap)"></span> Trap, Spikes, Poison, Arrows, Fire, Zombie</div>
               <div class="legend-row"><span class="swatch" style="background:var(--wall)"></span> Wall</div>
             </div>
-            <details class="legend-more">
+            <details class="legend-more" id="legendMore">
               <summary>Show More</summary>
               <div class="legend-group">
                 <div class="legend-title">Loot</div>
@@ -74,15 +81,13 @@
           </div>
         </section>
 
-        <section class="card">
-          <h2>Status</h2>
-          <div class="message" id="message">You wake in a dim dungeon. Escape is possible... if you can find the key.</div>
-          <div class="effect-status" id="effectStatus">No active effects.</div>
+        <section class="card actions-card">
           <div class="btn-row">
             <button id="restartBtn">Restart</button>
             <button id="newMapBtn" class="secondary">Next Stage</button>
           </div>
         </section>
+
       </aside>
     </div>
   </div>
