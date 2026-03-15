@@ -81,7 +81,7 @@ const boardEl = document.getElementById('board');
 const stageEl = document.getElementById('stage');
 const movesEl = document.getElementById('moves');
 const healthEl = document.getElementById('health');
-const hasKeyEl = document.getElementById('hasKey');
+const keyCountEl = document.getElementById('keyCount');
 const lootEl = document.getElementById('loot');
 const messageEl = document.getElementById('message');
 const effectStatusEl = document.getElementById('effectStatus');
@@ -310,12 +310,33 @@ function createStageData(stageNumber) {
   const leftDoorApproach = { x: firstDoor.x - 1, y: firstDoor.y };
   const rightDoorApproach = { x: lastDoor.x + 1, y: lastDoor.y };
 
-  const keyPosition = chooseFarthestPosition(
-    grid,
-    start,
-    (x, y) => x < firstDoor.x && !(x === start.x && y === start.y) && !(x === leftDoorApproach.x && y === leftDoorApproach.y),
-    rng
-  ) || { x: firstDoor.x - 2, y: size - 2 };
+  const keyPositions = barrierDoors.map((door, index) => {
+    const previousDoor = barrierDoors[index - 1] ?? null;
+    const segmentStart = previousDoor
+      ? { x: previousDoor.x + 1, y: previousDoor.y }
+      : start;
+
+    const candidate = chooseFarthestPosition(
+      grid,
+      segmentStart,
+      (x, y) => {
+        if (previousDoor) {
+          return x > previousDoor.x && x < door.x && !(x === segmentStart.x && y === segmentStart.y);
+        }
+
+        return x < door.x && !(x === start.x && y === start.y) && !(x === leftDoorApproach.x && y === leftDoorApproach.y);
+      },
+      rng
+    );
+
+    if (candidate) {
+      return candidate;
+    }
+
+    return previousDoor
+      ? { x: previousDoor.x + 1, y: Math.min(size - 2, previousDoor.y + 1) }
+      : { x: firstDoor.x - 2, y: size - 2 };
+  });
 
   const exitPosition = chooseFarthestPosition(
     grid,
@@ -348,7 +369,7 @@ function createStageData(stageNumber) {
   const corridorWallAttempts = Math.max(0, Math.min(corridorCandidates.length - 8, Math.floor(stageNumber / 3)));
   const rightWallAttempts = Math.max(0, Math.min(rightCandidates.length - 10, 3 + Math.floor(stageNumber / 3)));
 
-  const unlockedTargets = [keyPosition, exitPosition];
+  const unlockedTargets = [...keyPositions, exitPosition];
   for (const door of barrierDoors) {
     unlockedTargets.push({ x: door.x - 1, y: door.y });
     unlockedTargets.push({ x: door.x + 1, y: door.y });
@@ -359,7 +380,7 @@ function createStageData(stageNumber) {
     leftCandidates,
     leftWallAttempts,
     [
-      { start, targets: [keyPosition, leftDoorApproach], canOpenDoor: false }
+      { start, targets: [keyPositions[0], leftDoorApproach], canOpenDoor: false }
     ],
     rng
   );
@@ -369,7 +390,7 @@ function createStageData(stageNumber) {
     corridorCandidates,
     corridorWallAttempts,
     [
-      { start, targets: [keyPosition, leftDoorApproach], canOpenDoor: false },
+      { start, targets: [keyPositions[0], leftDoorApproach], canOpenDoor: false },
       { start, targets: unlockedTargets, canOpenDoor: true }
     ],
     rng
@@ -387,33 +408,32 @@ function createStageData(stageNumber) {
 
   const reservedKeys = new Set([
     getPositionKey(start.x, start.y),
-    getPositionKey(keyPosition.x, keyPosition.y),
     getPositionKey(exitPosition.x, exitPosition.y),
     getPositionKey(leftDoorApproach.x, leftDoorApproach.y),
     getPositionKey(rightDoorApproach.x, rightDoorApproach.y)
   ]);
+  keyPositions.forEach(position => {
+    reservedKeys.add(getPositionKey(position.x, position.y));
+  });
 
   const routeKeys = new Set();
-  addRouteSegment(routeKeys, start, keyPosition);
-  addRouteSegment(routeKeys, keyPosition, leftDoorApproach);
+  let routeStart = start;
 
-  for (const door of barrierDoors) {
+  for (let index = 0; index < barrierDoors.length; index++) {
+    const door = barrierDoors[index];
+    const keyPosition = keyPositions[index];
+
+    addRouteSegment(routeKeys, routeStart, keyPosition);
+    addRouteSegment(routeKeys, keyPosition, { x: door.x - 1, y: door.y });
     reservedKeys.add(getPositionKey(door.x, door.y));
     reservedKeys.add(getPositionKey(door.x - 1, door.y));
     reservedKeys.add(getPositionKey(door.x + 1, door.y));
 
     addRouteSegment(routeKeys, { x: door.x - 1, y: door.y }, { x: door.x + 1, y: door.y });
+    routeStart = { x: door.x + 1, y: door.y };
   }
 
-  for (let index = 0; index < barrierDoors.length - 1; index++) {
-    addRouteSegment(
-      routeKeys,
-      { x: barrierDoors[index].x + 1, y: barrierDoors[index].y },
-      { x: barrierDoors[index + 1].x - 1, y: barrierDoors[index + 1].y }
-    );
-  }
-
-  addRouteSegment(routeKeys, rightDoorApproach, exitPosition);
+  addRouteSegment(routeKeys, routeStart, exitPosition);
 
   for (const key of routeKeys) {
     reservedKeys.add(key);
@@ -430,7 +450,9 @@ function createStageData(stageNumber) {
   }
 
   grid[start.y][start.x] = TILE.PLAYER;
-  grid[keyPosition.y][keyPosition.x] = TILE.KEY;
+  keyPositions.forEach(position => {
+    grid[position.y][position.x] = TILE.KEY;
+  });
   grid[exitPosition.y][exitPosition.x] = TILE.EXIT;
 
   return {
@@ -681,7 +703,7 @@ function buildState(index, loot = totalLoot, health = 3) {
     },
     poisonTicks: 0,
     burnTicks: 0,
-    hasKey: false,
+    keys: 0,
     gameOver: false,
     won: false
   };
@@ -745,7 +767,7 @@ function updateStats() {
   stageEl.textContent = state.stageNumber;
   movesEl.textContent = state.moves;
   healthEl.textContent = state.health;
-  hasKeyEl.textContent = state.hasKey ? 'Yes' : 'No';
+  keyCountEl.textContent = state.keys;
   lootEl.textContent = state.loot;
   newMapBtn.disabled = state.stageNumber >= STAGE_COUNT || isStageTransitioning;
   updateEffectStatus();
@@ -1090,8 +1112,8 @@ function movePlayer(dx, dy) {
     return;
   }
 
-  if (nextTile === TILE.DOOR && !state.hasKey) {
-    setMessage('The door is locked. You need the key first.');
+  if (nextTile === TILE.DOOR && state.keys <= 0) {
+    setMessage('The door is locked. You need another key.');
     return;
   }
 
@@ -1104,12 +1126,13 @@ function movePlayer(dx, dy) {
   const triggeredHazard = triggerHazardAt(nextX, nextY);
 
   if (nextTile === TILE.KEY) {
-    state.hasKey = true;
+    state.keys += 1;
     state.grid[nextY][nextX] = TILE.FLOOR;
-    setMessage('You picked up the key. Now find the door and escape.');
+    setMessage(`You picked up a key. ${state.keys} key${state.keys === 1 ? '' : 's'} in hand.`);
   } else if (nextTile === TILE.DOOR) {
+    state.keys -= 1;
     state.grid[nextY][nextX] = TILE.FLOOR;
-    setMessage('You unlocked the dungeon door. The exit is near.');
+    setMessage(`You unlocked the door. ${state.keys} key${state.keys === 1 ? '' : 's'} remaining.`);
   } else if (nextTile === TILE.EXIT) {
     celebrateAndAdvance();
     return;
