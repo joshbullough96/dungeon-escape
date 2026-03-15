@@ -8,7 +8,34 @@ const TILE = {
 };
 
 const STAGE_COUNT = 30;
-const EFFECT_DURATION_MS = 10000;
+
+const TILE_TYPES = {
+  [TILE.WALL]: {
+    className: 'wall',
+    symbol: ''
+  },
+  [TILE.FLOOR]: {
+    className: 'floor',
+    symbol: ''
+  },
+  [TILE.PLAYER]: {
+    className: 'player',
+    symbol: '\u{1F9D9}',
+    defeatedSymbol: '\u{1FAA6}'
+  },
+  [TILE.KEY]: {
+    className: 'key',
+    symbol: '\u{1F5DD}\uFE0F'
+  },
+  [TILE.DOOR]: {
+    className: 'door',
+    symbol: '\u{1F6AA}'
+  },
+  [TILE.EXIT]: {
+    className: 'exit',
+    symbol: '\u2B06'
+  }
+};
 
 const HAZARD_TYPES = {
   trap: {
@@ -68,12 +95,14 @@ const ITEM_TYPES = {
   flashlight: {
     unlockStage: 8,
     className: 'power',
-    symbol: '\u{1F526}'
+    symbol: '\u{1F526}',
+    effectMoves: 10
   },
   shield: {
     unlockStage: 15,
     className: 'power',
-    symbol: '\u{1F6E1}'
+    symbol: '\u{1F6E1}',
+    effectCharges: 1
   }
 };
 
@@ -103,11 +132,6 @@ let nextStageTimeoutId = null;
 let totalLoot = 0;
 let compactBoardEnabled = compactLayoutQuery.matches;
 let isStageTransitioning = false;
-
-const effectTimeoutIds = {
-  flashlight: null,
-  shield: null
-};
 
 const settings = {
   fogOfWarEnabled: true
@@ -677,8 +701,8 @@ function buildState(index, loot = totalLoot, health = 3) {
     supportItems,
     hazards,
     effects: {
-      flashlightUntil: 0,
-      shieldUntil: 0
+      flashlightMoves: 0,
+      shieldCharges: 0
     },
     poisonTicks: 0,
     burnTicks: 0,
@@ -701,32 +725,23 @@ function clearNextStageTimeout() {
   isStageTransitioning = false;
 }
 
-function clearEffectTimeouts() {
-  for (const key of Object.keys(effectTimeoutIds)) {
-    if (effectTimeoutIds[key] !== null) {
-      clearTimeout(effectTimeoutIds[key]);
-      effectTimeoutIds[key] = null;
-    }
-  }
-}
-
 function isFlashlightActive() {
-  return state && state.effects.flashlightUntil > Date.now();
+  return Boolean(state) && state.effects.flashlightMoves > 0;
 }
 
 function isShieldActive() {
-  return state && state.effects.shieldUntil > Date.now();
+  return Boolean(state) && state.effects.shieldCharges > 0;
 }
 
 function updateEffectStatus() {
   const active = [];
 
   if (isFlashlightActive()) {
-    active.push('Flashlight');
+    active.push(`Flashlight (${state.effects.flashlightMoves})`);
   }
 
   if (isShieldActive()) {
-    active.push('Shield');
+    active.push(`Shield (${state.effects.shieldCharges})`);
   }
 
   if (state.poisonTicks > 0) {
@@ -758,32 +773,23 @@ function updateStats() {
 }
 
 function getTileClass(tile, isPlayer, lootItem, supportItem, hazard) {
-  if (isPlayer) return 'player';
+  if (isPlayer) return TILE_TYPES[TILE.PLAYER].className;
   if (supportItem) return ITEM_TYPES[supportItem.type].className;
   if (lootItem) return ITEM_TYPES[lootItem.type].className;
   if (hazard) return HAZARD_TYPES[hazard.type].className;
-
-  switch (tile) {
-    case TILE.WALL: return 'wall';
-    case TILE.KEY: return 'key';
-    case TILE.DOOR: return 'door';
-    case TILE.EXIT: return 'exit';
-    default: return 'floor';
-  }
+  return TILE_TYPES[tile]?.className ?? TILE_TYPES[TILE.FLOOR].className;
 }
 
 function getTileSymbol(tile, isPlayer, lootItem, supportItem, hazard) {
-  if (isPlayer) return state.gameOver && !state.won ? '\u{1FAA6}' : '\u{1F9D9}';
+  if (isPlayer) {
+    return state.gameOver && !state.won
+      ? TILE_TYPES[TILE.PLAYER].defeatedSymbol
+      : TILE_TYPES[TILE.PLAYER].symbol;
+  }
   if (supportItem) return ITEM_TYPES[supportItem.type].symbol;
   if (lootItem) return ITEM_TYPES[lootItem.type].symbol;
   if (hazard) return HAZARD_TYPES[hazard.type].symbol;
-
-  switch (tile) {
-    case TILE.KEY: return '\u{1F5DD}\uFE0F';
-    case TILE.DOOR: return '\u{1F6AA}';
-    case TILE.EXIT: return '\u2B06';
-    default: return '';
-  }
+  return TILE_TYPES[tile]?.symbol ?? '';
 }
 
 function isTileVisible(x, y) {
@@ -840,7 +846,6 @@ function render() {
 
 function loadStage(index, loot = totalLoot, health = 3, message = null) {
   clearNextStageTimeout();
-  clearEffectTimeouts();
   currentStageIndex = index;
   state = buildState(index, loot, health);
   isStageTransitioning = false;
@@ -908,7 +913,7 @@ function celebrateAndAdvance() {
 
 function applyDamage(amount, messagePrefix) {
   if (isShieldActive()) {
-    setMessage('Your shield absorbs the danger.');
+    consumeShieldCharge('Your shield absorbs the danger.');
     return false;
   }
 
@@ -924,25 +929,48 @@ function applyDamage(amount, messagePrefix) {
   return false;
 }
 
-function activateEffect(effectName, startMessage, endMessage) {
-  state.effects[effectName] = Date.now() + EFFECT_DURATION_MS;
-
-  if (effectTimeoutIds[effectName] !== null) {
-    clearTimeout(effectTimeoutIds[effectName]);
+function consumeShieldCharge(blockMessage) {
+  if (!isShieldActive()) {
+    return false;
   }
 
-  effectTimeoutIds[effectName] = setTimeout(() => {
-    effectTimeoutIds[effectName] = null;
-    if (!state) {
-      return;
-    }
+  state.effects.shieldCharges -= 1;
+  setMessage(
+    state.effects.shieldCharges > 0
+      ? `${blockMessage} ${state.effects.shieldCharges} shield${state.effects.shieldCharges === 1 ? '' : 's'} remaining.`
+      : `${blockMessage} The shield shatters.`
+  );
+  return true;
+}
 
-    state.effects[effectName] = 0;
-    setMessage(endMessage);
-    render();
-  }, EFFECT_DURATION_MS);
+function activateEffect(effectName, startMessage) {
+  if (effectName === 'shield') {
+    state.effects.shieldCharges += ITEM_TYPES.shield.effectCharges;
+    setMessage(startMessage);
+    return;
+  }
 
+  const effectKey = `${effectName}Moves`;
+  state.effects[effectKey] += ITEM_TYPES[effectName].effectMoves;
   setMessage(startMessage);
+}
+
+function tickActiveEffects(skippedEffects = new Set()) {
+  const expirations = [];
+
+  if (state.effects.flashlightMoves > 0 && !skippedEffects.has('flashlight')) {
+    state.effects.flashlightMoves -= 1;
+    if (state.effects.flashlightMoves === 0) {
+      expirations.push('The flashlight flickers out.');
+    }
+  }
+
+  if (expirations.length === 0) {
+    return;
+  }
+
+  const currentMessage = messageEl.textContent.trim();
+  setMessage(currentMessage ? `${currentMessage} ${expirations.join(' ')}` : expirations.join(' '));
 }
 
 function applyPoisonTick(baseMessage) {
@@ -951,8 +979,7 @@ function applyPoisonTick(baseMessage) {
   }
 
   state.poisonTicks -= 1;
-  if (isShieldActive()) {
-    setMessage(`${baseMessage} Your shield blocks the poison.`);
+  if (consumeShieldCharge(`${baseMessage} Your shield blocks the poison.`)) {
     return;
   }
 
@@ -973,8 +1000,7 @@ function applyBurnTick(baseMessage) {
   }
 
   state.burnTicks -= 1;
-  if (isShieldActive()) {
-    setMessage(`${baseMessage} Your shield shrugs off the flames.`);
+  if (consumeShieldCharge(`${baseMessage} Your shield shrugs off the flames.`)) {
     return;
   }
 
@@ -1008,7 +1034,7 @@ function collectLootAt(x, y) {
 function collectSupportAt(x, y) {
   const item = getSupportItemAt(x, y);
   if (!item) {
-    return false;
+    return null;
   }
 
   state.supportItems = state.supportItems.filter(entry => entry !== item);
@@ -1016,20 +1042,21 @@ function collectSupportAt(x, y) {
   if (item.type === 'meat') {
     state.health = Math.min(state.maxHealth, state.health + 1);
     setMessage(`You eat the meat and recover to ${state.health} health.`);
-    return true;
+    return 'meat';
   }
 
   if (item.type === 'flashlight') {
-    activateEffect('flashlight', 'Flashlight on. You can see everything for 10 seconds.', 'The flashlight flickers out.');
-    return true;
+    activateEffect('flashlight', `Flashlight on. Full vision for ${state.effects.flashlightMoves + ITEM_TYPES.flashlight.effectMoves} moves.`);
+    return 'flashlight';
   }
 
   if (item.type === 'shield') {
-    activateEffect('shield', 'Shield raised. You are invincible for 10 seconds.', 'Your shield fades away.');
-    return true;
+    const newCharges = state.effects.shieldCharges + ITEM_TYPES.shield.effectCharges;
+    activateEffect('shield', `Shield raised. ${newCharges} shield block${newCharges === 1 ? '' : 's'} ready.`);
+    return 'shield';
   }
 
-  return false;
+  return null;
 }
 
 function triggerHazardAt(x, y) {
@@ -1048,7 +1075,11 @@ function triggerHazardAt(x, y) {
       applyDamage(1, 'Spikes jab through your boots.');
       break;
     case 'poison':
-      if (!applyDamage(1, 'Poison burns through you.') && !isShieldActive()) {
+      if (consumeShieldCharge('Your shield blocks the poison completely.')) {
+        break;
+      }
+
+      if (!applyDamage(1, 'Poison burns through you.')) {
         state.poisonTicks += 2;
         setMessage(`Poison burns through you. ${state.health} health remaining, and the poison lingers.`);
       }
@@ -1057,14 +1088,18 @@ function triggerHazardAt(x, y) {
       applyDamage(1, 'Hidden arrows strike you from the wall.');
       break;
     case 'fire':
-      if (!applyDamage(2, 'Fire scorches you for 2 damage.') && !isShieldActive()) {
+      if (consumeShieldCharge('Your shield smothers the flames completely.')) {
+        break;
+      }
+
+      if (!applyDamage(2, 'Fire scorches you for 2 damage.')) {
         state.burnTicks += 3;
         setMessage(`Fire scorches you for 2 damage. ${state.health} health remaining, and the flames keep burning.`);
       }
       break;
     case 'zombie':
-      if (isShieldActive()) {
-        setMessage('A zombie lurches forward, but your shield holds it back.');
+      if (consumeShieldCharge('A zombie lurches forward, but your shield holds it back.')) {
+        break;
       } else {
         const stolenLoot = Math.min(20, state.loot);
         state.health -= 1;
@@ -1111,6 +1146,7 @@ function movePlayer(dx, dy) {
   const collectedLoot = collectLootAt(nextX, nextY);
   const collectedSupport = collectSupportAt(nextX, nextY);
   const triggeredHazard = triggerHazardAt(nextX, nextY);
+  const skippedEffects = new Set();
 
   if (nextTile === TILE.KEY) {
     state.keys += 1;
@@ -1127,12 +1163,20 @@ function movePlayer(dx, dy) {
     setMessage('You move cautiously through the dungeon.');
   }
 
+  if (collectedSupport === 'flashlight' || collectedSupport === 'shield') {
+    skippedEffects.add(collectedSupport);
+  }
+
   if (wasPoisoned && !state.gameOver && nextTile !== TILE.EXIT) {
     applyPoisonTick(messageEl.textContent);
   }
 
   if (wasBurning && !state.gameOver && nextTile !== TILE.EXIT) {
     applyBurnTick(messageEl.textContent);
+  }
+
+  if (!state.gameOver && nextTile !== TILE.EXIT) {
+    tickActiveEffects(skippedEffects);
   }
 
   render();
