@@ -218,6 +218,37 @@ button,
   gap: 8px;
 }
 
+.legend-more {
+  display: grid;
+  gap: 12px;
+  padding-top: 2px;
+}
+
+.legend-more .legend-group + .legend-group {
+  margin-top: 14px;
+}
+
+.legend-more summary {
+  cursor: pointer;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  list-style: none;
+}
+
+.legend-more summary::-webkit-details-marker {
+  display: none;
+}
+
+.legend-more summary::before {
+  content: '+ ';
+}
+
+.legend-more[open] summary::before {
+  content: '- ';
+}
+
 .legend-title {
   font-size: 0.65rem;
   font-weight: 700;
