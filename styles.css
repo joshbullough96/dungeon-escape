@@ -6,10 +6,18 @@
   --floor: #2e3440;
   --player: #a1d1de;
   --key: #7d672d;
-  --treasure: #d9a534;
+  --treasure: #7b580b;
+  --gem: #1b4f6a;
+  --heal: #9c6a44;
+  --power: #186a63;
   --door: #672d33;
   --exit: #729796;
   --trap: #7c5143;
+  --spikes: #8f8f8f;
+  --poison: #5f8a49;
+  --arrows: #7a6a57;
+  --fire: #7e4729;
+  --zombie: #324b2b;
   --text: #eceff4;
   --muted: #b8c1d1;
   --shadow: rgba(0, 0, 0, 0.28);
@@ -146,6 +154,14 @@ body {
 .tile.player { background: var(--floor); }
 .tile.key { background: var(--key); }
 .tile.treasure { background: var(--treasure); color: #261700; }
+.tile.gem { background: var(--gem); color: #06253b; }
+.tile.heal { background: var(--heal); color: #fff4ea; }
+.tile.power { background: var(--power); color: #fff4ea; font-weight: bold; }
+.tile.spikes { background: var(--spikes); color: #161616; }
+.tile.poison { background: var(--poison); color: #0f2008; }
+.tile.arrows { background: var(--arrows); color: #18110b; }
+.tile.fire { background: var(--fire); color: #2b1205; }
+.tile.zombie { background: var(--zombie); color: #0e1b09; }
 .tile.door { background: var(--door); }
 .tile.exit { background: var(--exit); color: #08353b; font-weight: bold; }
 .tile.trap { background: var(--trap); }
@@ -184,15 +200,29 @@ body {
 
 .legend {
   display: grid;
-  gap: 8px;
+  gap: 14px;
   font-size: 0.93rem;
   color: var(--muted);
 }
 
+.legend-group {
+  display: grid;
+  gap: 8px;
+}
+
+.legend-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
 .legend-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
+  line-height: 1.35;
 }
 
 .swatch {
@@ -207,6 +237,13 @@ body {
   min-height: 88px;
   line-height: 1.5;
   color: var(--text);
+}
+
+.effect-status {
+  margin-top: 10px;
+  min-height: 22px;
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .btn-row {
@@ -368,6 +405,7 @@ button:disabled {
   .btn-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
+    justify-content: stretch;
   }
 
   .modal-panel {

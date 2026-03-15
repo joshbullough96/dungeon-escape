@@ -47,19 +47,35 @@
         <section class="card">
           <h2>Legend</h2>
           <div class="legend">
-            <!-- <div class="legend-row"><span class="swatch" style="background:var(--floor)"></span> Player</div> -->
-            <div class="legend-row"><span class="swatch" style="background:var(--key)"></span> Key</div>
-            <div class="legend-row"><span class="swatch" style="background:var(--treasure)"></span> Treasure</div>
-            <div class="legend-row"><span class="swatch" style="background:var(--door)"></span> Locked Door</div>
-            <div class="legend-row"><span class="swatch" style="background:var(--exit)"></span> Exit</div>
-            <div class="legend-row"><span class="swatch" style="background:var(--trap)"></span> Trap</div>
-            <div class="legend-row"><span class="swatch" style="background:var(--wall)"></span> Wall</div>
+            <div class="legend-group">
+              <div class="legend-title">Objectives</div>
+              <div class="legend-row"><span class="swatch" style="background:var(--key)"></span> Key</div>
+              <div class="legend-row"><span class="swatch" style="background:var(--door)"></span> Locked Door</div>
+              <div class="legend-row"><span class="swatch" style="background:var(--exit)"></span> Exit</div>
+            </div>
+            <div class="legend-group">
+              <div class="legend-title">Loot</div>
+              <div class="legend-row"><span class="swatch" style="background:var(--treasure)"></span> Treasure Bag</div>
+              <div class="legend-row"><span class="swatch" style="background:var(--gem)"></span> Gemstone</div>
+              <div class="legend-row"><span class="swatch" style="background:var(--heal)"></span> Meat on Bone</div>
+            </div>
+            <div class="legend-group">
+              <div class="legend-title">Power-Ups</div>
+              <div class="legend-row"><span class="swatch" style="background:var(--power)"></span> Flashlight</div>
+              <div class="legend-row"><span class="swatch" style="background:var(--power)"></span> Shield</div>
+            </div>
+            <div class="legend-group">
+              <div class="legend-title">Hazards</div>
+              <div class="legend-row"><span class="swatch" style="background:var(--trap)"></span> Trap, Spikes, Poison, Arrows, Fire, Zombie</div>
+              <div class="legend-row"><span class="swatch" style="background:var(--wall)"></span> Wall</div>
+            </div>
           </div>
         </section>
 
         <section class="card">
           <h2>Status</h2>
           <div class="message" id="message">You wake in a dim dungeon. Escape is possible... if you can find the key.</div>
+          <div class="effect-status" id="effectStatus">No active effects.</div>
           <div class="btn-row">
             <button id="restartBtn">Restart</button>
             <button id="newMapBtn" class="secondary">Next Stage</button>
