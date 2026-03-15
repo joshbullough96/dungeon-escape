@@ -111,14 +111,6 @@ const settings = {
   fogOfWarEnabled: true
 };
 
-function vibrateMove(duration = 12) {
-  if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') {
-    return;
-  }
-
-  navigator.vibrate(duration);
-}
-
 function createSeededRandom(seed) {
   let value = seed >>> 0;
 
@@ -1174,9 +1166,7 @@ function handleDirectionalMove(direction) {
   }
 
   const [dx, dy] = selectedMove;
-  if (movePlayer(dx, dy)) {
-    vibrateMove();
-  }
+  movePlayer(dx, dy);
 }
 
 function handleKeydown(event) {
