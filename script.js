@@ -437,6 +437,15 @@ function createStageData(stageNumber) {
   const exitPosition = chooseFarthestPosition(
     grid,
     rightDoorApproach,
+    (x, y) => {
+      return x > lastDoor.x &&
+        (y === 1 || y === size - 2) &&
+        !(x === rightDoorApproach.x && y === rightDoorApproach.y);
+    },
+    rng
+  ) || chooseFarthestPosition(
+    grid,
+    rightDoorApproach,
     (x, y) => x > lastDoor.x && !(x === rightDoorApproach.x && y === rightDoorApproach.y),
     rng
   ) || { x: size - 2, y: size - 2 };
