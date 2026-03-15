@@ -111,6 +111,14 @@ const settings = {
   fogOfWarEnabled: true
 };
 
+function vibrateMove(duration = 12) {
+  if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') {
+    return;
+  }
+
+  navigator.vibrate(duration);
+}
+
 function createSeededRandom(seed) {
   let value = seed >>> 0;
 
@@ -1099,7 +1107,7 @@ function triggerHazardAt(x, y) {
 }
 
 function movePlayer(dx, dy) {
-  if (state.gameOver || state.won) return;
+  if (state.gameOver || state.won) return false;
 
   const nextX = state.player.x + dx;
   const nextY = state.player.y + dy;
@@ -1109,12 +1117,12 @@ function movePlayer(dx, dy) {
 
   if (!nextTile || nextTile === TILE.WALL) {
     setMessage('A cold stone wall blocks your path.');
-    return;
+    return false;
   }
 
   if (nextTile === TILE.DOOR && state.keys <= 0) {
     setMessage('The door is locked. You need another key.');
-    return;
+    return false;
   }
 
   state.player.x = nextX;
@@ -1135,7 +1143,7 @@ function movePlayer(dx, dy) {
     setMessage(`You unlocked the door. ${state.keys} key${state.keys === 1 ? '' : 's'} remaining.`);
   } else if (nextTile === TILE.EXIT) {
     celebrateAndAdvance();
-    return;
+    return true;
   } else if (!collectedLoot && !collectedSupport && !triggeredHazard) {
     setMessage('You move cautiously through the dungeon.');
   }
@@ -1149,6 +1157,7 @@ function movePlayer(dx, dy) {
   }
 
   render();
+  return true;
 }
 
 function handleDirectionalMove(direction) {
@@ -1165,7 +1174,9 @@ function handleDirectionalMove(direction) {
   }
 
   const [dx, dy] = selectedMove;
-  movePlayer(dx, dy);
+  if (movePlayer(dx, dy)) {
+    vibrateMove();
+  }
 }
 
 function handleKeydown(event) {
