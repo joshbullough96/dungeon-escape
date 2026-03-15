@@ -818,6 +818,24 @@ function closeSettingsModal() {
   settingsModal.setAttribute('aria-hidden', 'true');
 }
 
+function getAdjacentMoveDirection(x, y) {
+  const dx = x - state.player.x;
+  const dy = y - state.player.y;
+
+  if (Math.abs(dx) + Math.abs(dy) !== 1) {
+    return null;
+  }
+
+  if (dx === 1) return 'right';
+  if (dx === -1) return 'left';
+  if (dy === 1) return 'down';
+  return 'up';
+}
+
+function isTileActionable(tile, isVisible, adjacentMove) {
+  return Boolean(adjacentMove) && isVisible && tile !== TILE.WALL;
+}
+
 function render() {
   const rows = state.grid.length;
   const cols = state.grid[0].length;
@@ -832,10 +850,21 @@ function render() {
       const supportItem = getSupportItemAt(x, y);
       const hazard = getHazardAt(x, y);
       const isVisible = isTileVisible(x, y);
+      const adjacentMove = getAdjacentMoveDirection(x, y);
+      const isActionable = isTileActionable(tile, isVisible, adjacentMove);
       const tileEl = document.createElement('div');
       tileEl.className = isVisible
         ? `tile revealed ${getTileClass(tile, isPlayer, lootItem, supportItem, hazard)}`
         : 'tile hidden';
+      if (isActionable && !state.gameOver && !state.won) {
+        tileEl.classList.add('tile-actionable');
+        tileEl.dataset.move = adjacentMove;
+        tileEl.setAttribute('role', 'button');
+        tileEl.setAttribute('tabindex', '0');
+        tileEl.setAttribute('aria-label', `Move ${adjacentMove}`);
+      }
+      tileEl.dataset.x = x;
+      tileEl.dataset.y = y;
       tileEl.textContent = isVisible ? getTileSymbol(tile, isPlayer, lootItem, supportItem, hazard) : '';
       boardEl.appendChild(tileEl);
     }
@@ -1135,7 +1164,7 @@ function movePlayer(dx, dy) {
   }
 
   if (nextTile === TILE.DOOR && state.keys <= 0) {
-    setMessage('The door is locked. You need another key.');
+    setMessage('You need a key first.');
     return false;
   }
 
@@ -1200,6 +1229,35 @@ function handleDirectionalMove(direction) {
   movePlayer(dx, dy);
 }
 
+function handleBoardInteraction(event) {
+  const tileEl = event.target.closest('.tile-actionable');
+  if (!tileEl || !boardEl.contains(tileEl)) {
+    return;
+  }
+
+  const direction = tileEl.dataset.move;
+  if (!direction) {
+    return;
+  }
+
+  event.preventDefault();
+  handleDirectionalMove(direction);
+}
+
+function handleBoardKeydown(event) {
+  if (event.key !== 'Enter' && event.key !== ' ') {
+    return;
+  }
+
+  const tileEl = event.target.closest('.tile-actionable');
+  if (!tileEl || !boardEl.contains(tileEl)) {
+    return;
+  }
+
+  event.preventDefault();
+  handleDirectionalMove(tileEl.dataset.move);
+}
+
 function handleKeydown(event) {
   if (event.key === 'Escape' && !settingsModal.classList.contains('hidden-modal')) {
     closeSettingsModal();
@@ -1238,6 +1296,8 @@ fogToggle.addEventListener('change', () => {
   settings.fogOfWarEnabled = fogToggle.checked;
   render();
 });
+boardEl.addEventListener('click', handleBoardInteraction);
+boardEl.addEventListener('keydown', handleBoardKeydown);
 touchButtons.forEach(button => {
   button.addEventListener('click', () => {
     handleDirectionalMove(button.dataset.move);
