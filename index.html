@@ -27,13 +27,19 @@
     <div class="content">
       <div class="board-wrap">
         <div id="board" aria-label="Dungeon board"></div>
+        <div class="touch-controls" aria-label="Touch movement controls">
+          <button class="touch-btn touch-up" type="button" data-move="up" aria-label="Move up">▲</button>
+          <button class="touch-btn touch-left" type="button" data-move="left" aria-label="Move left">◀</button>
+          <button class="touch-btn touch-right" type="button" data-move="right" aria-label="Move right">▶</button>
+          <button class="touch-btn touch-down" type="button" data-move="down" aria-label="Move down">▼</button>
+        </div>
       </div>
 
       <aside class="sidebar">
         <section class="card">
           <h2>How to Play</h2>
           <div class="controls">
-            Use <strong>arrow keys</strong> or <strong>W A S D</strong> to move.<br>
+            Use <strong>arrow keys</strong> or <br><strong>W A S D</strong> to move.<br><br>
             Step on the <strong>key</strong>, then open the <strong>door</strong> and escape through the <strong>exit</strong>.
           </div>
         </section>

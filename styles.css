@@ -26,6 +26,7 @@ body {
   display: grid;
   place-items: center;
   padding: 20px;
+  overflow-x: hidden;
 }
 
 .game-shell {
@@ -39,13 +40,16 @@ body {
 
 .topbar {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 12px;
-  justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   padding: 18px 20px;
   background: var(--panel-2);
   border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.title-wrap {
+  width: 100%;
 }
 
 .title-wrap h1 {
@@ -60,9 +64,10 @@ body {
 }
 
 .stats {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 10px;
+  width: 100%;
 }
 
 .stat {
@@ -76,6 +81,7 @@ body {
 
 .settings-btn {
   align-self: stretch;
+  min-height: 44px;
 }
 
 .content {
@@ -98,6 +104,28 @@ body {
   padding: 12px;
   border-radius: 18px;
   border: 1px solid rgba(255,255,255,0.08);
+}
+
+.touch-controls {
+  display: none;
+  grid-template-columns: repeat(3, minmax(56px, 72px));
+  grid-template-areas:
+    ". up ."
+    "left down right";
+  justify-content: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.touch-up { grid-area: up; }
+.touch-left { grid-area: left; }
+.touch-right { grid-area: right; }
+.touch-down { grid-area: down; }
+
+.touch-btn {
+  min-height: 56px;
+  font-size: 1.2rem;
+  padding: 0;
 }
 
 .tile {
@@ -268,6 +296,20 @@ button:disabled {
 }
 
 @media (max-width: 860px) {
+  body {
+    padding: 10px;
+    display: block;
+  }
+
+  .game-shell {
+    width: 100%;
+    border-radius: 16px;
+  }
+
+  .topbar {
+    padding: 14px;
+  }
+
   .content {
     grid-template-columns: 1fr;
   }
@@ -275,5 +317,61 @@ button:disabled {
   .sidebar {
     border-left: 0;
     border-top: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .board-wrap,
+  .sidebar {
+    padding: 14px;
+  }
+
+  #board {
+    gap: 3px;
+    padding: 8px;
+    border-radius: 14px;
+  }
+
+  .tile {
+    border-radius: 6px;
+    font-size: clamp(0.85rem, 3.6vw, 1.25rem);
+  }
+
+  .touch-controls {
+    display: grid;
+  }
+}
+
+@media (max-width: 560px) {
+  .title-wrap h1 {
+    font-size: 1.25rem;
+  }
+
+  .title-wrap p,
+  .controls,
+  .legend,
+  .message,
+  .stat {
+    font-size: 0.9rem;
+  }
+
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .stat,
+  .settings-btn,
+  .btn-row button {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .modal-panel {
+    width: calc(100vw - 20px);
+    padding: 16px;
   }
 }

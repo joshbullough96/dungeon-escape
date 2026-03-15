@@ -24,11 +24,14 @@ const settingsModal = document.getElementById('settingsModal');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 const modalBackdrop = document.getElementById('modalBackdrop');
 const fogToggle = document.getElementById('fogToggle');
+const touchButtons = document.querySelectorAll('.touch-btn');
+const compactLayoutQuery = window.matchMedia('(max-width: 560px)');
 
 let state = null;
 let currentStageIndex = 0;
 let nextMapTimeoutId = null;
 let totalLoot = 0;
+let compactBoardEnabled = compactLayoutQuery.matches;
 
 const settings = {
   fogOfWarEnabled: true
@@ -197,16 +200,25 @@ function addRouteSegment(routeKeys, start, end) {
   }
 }
 
+function getBoardProfile(stageNumber) {
+  if (compactBoardEnabled) {
+    return {
+      size: 9,
+      wallColumns: stageNumber >= 11 ? [3, 5] : [4]
+    };
+  }
+
+  return {
+    size: 12,
+    wallColumns: stageNumber >= 21 ? [5, 7, 9] : stageNumber >= 11 ? [5, 7] : [5]
+  };
+}
+
 function createStageTemplate(stageNumber) {
   const rng = createSeededRandom(stageNumber * 2654435761);
-  const size = 12;
-  const wallColumns = [5];
-  if (stageNumber >= 11) {
-    wallColumns.push(7);
-  }
-  if (stageNumber >= 21) {
-    wallColumns.push(9);
-  }
+  const profile = getBoardProfile(stageNumber);
+  const size = profile.size;
+  const wallColumns = [...profile.wallColumns];
   const grid = createGrid(size);
 
   for (let y = 1; y < size - 1; y++) {
@@ -364,10 +376,8 @@ function createStageTemplate(stageNumber) {
   return grid.map(row => row.join(''));
 }
 
-const stageTemplates = Array.from({ length: STAGE_COUNT }, (_, index) => createStageTemplate(index + 1));
-
 function cloneTemplate(index) {
-  return stageTemplates[index].map(row => row.split(''));
+  return createStageTemplate(index + 1).map(row => row.split(''));
 }
 
 function findTilePosition(grid, targetTile) {
@@ -546,6 +556,13 @@ function isTileVisible(x, y) {
     return true;
   }
 
+  if (compactBoardEnabled) {
+    return x >= state.player.x - 1 &&
+      x <= state.player.x + 2 &&
+      y >= state.player.y - 1 &&
+      y <= state.player.y + 2;
+  }
+
   return Math.abs(state.player.x - x) <= 2 && Math.abs(state.player.y - y) <= 2;
 }
 
@@ -700,6 +717,23 @@ function movePlayer(dx, dy) {
   render();
 }
 
+function handleDirectionalMove(direction) {
+  const moves = {
+    up: [0, -1],
+    down: [0, 1],
+    left: [-1, 0],
+    right: [1, 0]
+  };
+
+  const selectedMove = moves[direction];
+  if (!selectedMove) {
+    return;
+  }
+
+  const [dx, dy] = selectedMove;
+  movePlayer(dx, dy);
+}
+
 function handleKeydown(event) {
   if (event.key === 'Escape' && !settingsModal.classList.contains('hidden-modal')) {
     closeSettingsModal();
@@ -720,8 +754,12 @@ function handleKeydown(event) {
 
   if (!moves[key]) return;
   event.preventDefault();
-  const [dx, dy] = moves[key];
-  movePlayer(dx, dy);
+  handleDirectionalMove(
+    key === 'arrowup' || key === 'w' ? 'up' :
+    key === 'arrowdown' || key === 's' ? 'down' :
+    key === 'arrowleft' || key === 'a' ? 'left' :
+    'right'
+  );
 }
 
 restartBtn.addEventListener('click', restartCurrentStage);
@@ -732,6 +770,15 @@ modalBackdrop.addEventListener('click', closeSettingsModal);
 fogToggle.addEventListener('change', () => {
   settings.fogOfWarEnabled = fogToggle.checked;
   render();
+});
+touchButtons.forEach(button => {
+  button.addEventListener('click', () => {
+    handleDirectionalMove(button.dataset.move);
+  });
+});
+compactLayoutQuery.addEventListener('change', event => {
+  compactBoardEnabled = event.matches;
+  loadStage(currentStageIndex, state ? state.loot : totalLoot, `Screen size changed. Stage ${currentStageIndex + 1} has been resized for this device.`);
 });
 window.addEventListener('keydown', handleKeydown);
 
