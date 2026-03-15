@@ -73,8 +73,7 @@
 
   registry.template = function createTemplateStageData(stageNumber, context) {
     const templateSets = window.CustomStageTemplates || {};
-    const key = context.compactBoardEnabled ? 'compact' : 'standard';
-    const templates = templateSets[key] || [];
+    const templates = templateSets.standard || [];
 
     if (templates.length === 0) {
       return null;
@@ -86,8 +85,7 @@
 
   registry['template-looting'] = function createLootingTemplateStageData(stageNumber, context) {
     const templateSets = window.CustomStageTemplates || {};
-    const key = context.compactBoardEnabled ? 'compactLooting' : 'standardLooting';
-    const templates = templateSets[key] || [];
+    const templates = templateSets.standardLooting || [];
 
     if (templates.length === 0) {
       return null;

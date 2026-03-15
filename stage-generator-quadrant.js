@@ -1,10 +1,8 @@
 (function () {
   const registry = window.StageGenerationRegistry = window.StageGenerationRegistry || {};
 
-  function getQuadrantProfile(compactBoardEnabled) {
-    return compactBoardEnabled
-      ? { size: 9, maxDoors: 2, obstacleAttempts: 2 }
-      : { size: 12, maxDoors: 3, obstacleAttempts: 5 };
+  function getQuadrantProfile() {
+    return { size: 12, maxDoors: 3, obstacleAttempts: 5 };
   }
 
   function getRoomBounds(size, roomName) {
@@ -45,12 +43,11 @@
       addRouteSegment,
       getPositionKey,
       TILE,
-      compactBoardEnabled,
       canReachAll,
       canReachAllWithProgression
     } = context;
     const rng = createSeededRandom(stageNumber * 1597334677);
-    const profile = getQuadrantProfile(compactBoardEnabled);
+    const profile = getQuadrantProfile();
     const size = profile.size;
     const grid = createGrid(size);
     const midX = Math.floor(size / 2);
@@ -98,7 +95,6 @@
     };
 
     const lockedDoorCount = Math.min(
-      compactBoardEnabled ? 2 : 3,
       stageNumber >= 21 ? 3 : stageNumber >= 11 ? 2 : 1,
       profile.maxDoors
     );

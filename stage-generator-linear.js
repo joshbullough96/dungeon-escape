@@ -1,14 +1,7 @@
 (function () {
   const registry = window.StageGenerationRegistry = window.StageGenerationRegistry || {};
 
-  function getBoardProfile(stageNumber, compactBoardEnabled) {
-    if (compactBoardEnabled) {
-      return {
-        size: 9,
-        wallColumns: stageNumber >= 11 ? [3, 5] : [4]
-      };
-    }
-
+  function getBoardProfile(stageNumber) {
     return {
       size: 12,
       wallColumns: stageNumber >= 21 ? [5, 7, 9] : stageNumber >= 11 ? [5, 7] : [5]
@@ -24,11 +17,10 @@
       attemptWallPlacement,
       addRouteSegment,
       getPositionKey,
-      TILE,
-      compactBoardEnabled
+      TILE
     } = context;
     const rng = createSeededRandom(stageNumber * 2654435761);
-    const profile = getBoardProfile(stageNumber, compactBoardEnabled);
+    const profile = getBoardProfile(stageNumber);
     const size = profile.size;
     const wallColumns = [...profile.wallColumns];
     const grid = createGrid(size);

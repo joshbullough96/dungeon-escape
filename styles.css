@@ -207,7 +207,7 @@ button,
   place-items: center;
   width: 100%;
   aspect-ratio: 1 / 1;
-  font-size: clamp(0.95rem, 1.7vw, 1.5rem);
+  font-size: clamp(1.5rem, 2.1vw, 1.85rem);
   line-height: 1;
   user-select: none;
   overflow: hidden;
@@ -515,7 +515,7 @@ button:disabled {
 
   .tile {
     border-radius: 6px;
-    font-size: clamp(0.85rem, 3.6vw, 1.25rem);
+    font-size: clamp(1.35rem, 3.8vw, 1.95rem);
   }
 
   .touch-controls {
@@ -524,6 +524,10 @@ button:disabled {
 }
 
 @media (max-width: 560px) {
+  .tile {
+    font-size: clamp(1.2rem, 6.8vw, 2rem);
+  }
+
   .title-wrap h1 {
     font-size: 1.25rem;
   }

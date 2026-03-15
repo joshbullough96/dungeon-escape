@@ -123,17 +123,19 @@ const modalBackdrop = document.getElementById('modalBackdrop');
 const fogToggle = document.getElementById('fogToggle');
 const legendMoreEl = document.getElementById('legendMore');
 const touchButtons = document.querySelectorAll('.touch-btn');
-const compactLayoutQuery = window.matchMedia('(max-width: 560px)');
+const mobileViewportQuery = window.matchMedia('(max-width: 560px)');
 const mobileLegendQuery = window.matchMedia('(max-width: 860px)');
 const MOBILE_VIEWPORT_SIZE = 5;
 const MOBILE_DARKNESS_RADIUS = 1;
+const MOBILE_SWIPE_THRESHOLD = 28;
 
 let state = null;
 let currentStageIndex = 0;
 let nextStageTimeoutId = null;
 let totalLoot = 0;
-let mobileViewportEnabled = compactLayoutQuery.matches;
+let mobileViewportEnabled = mobileViewportQuery.matches;
 let isStageTransitioning = false;
+let touchStartPoint = null;
 
 const settings = {
   fogOfWarEnabled: true
@@ -416,7 +418,6 @@ function addRouteSegment(routeKeys, start, end) {
 function createStageGenerationContext() {
   return {
     TILE,
-    compactBoardEnabled: false,
     createSeededRandom,
     getRandomInt,
     shuffle,
@@ -1285,6 +1286,39 @@ function handleBoardKeydown(event) {
   handleDirectionalMove(tileEl.dataset.move);
 }
 
+function handleBoardTouchStart(event) {
+  if (!mobileViewportEnabled || event.touches.length !== 1) {
+    touchStartPoint = null;
+    return;
+  }
+
+  const touch = event.touches[0];
+  touchStartPoint = { x: touch.clientX, y: touch.clientY };
+}
+
+function handleBoardTouchEnd(event) {
+  if (!mobileViewportEnabled || !touchStartPoint) {
+    touchStartPoint = null;
+    return;
+  }
+
+  const touch = event.changedTouches[0];
+  const deltaX = touch.clientX - touchStartPoint.x;
+  const deltaY = touch.clientY - touchStartPoint.y;
+  touchStartPoint = null;
+
+  if (Math.abs(deltaX) < MOBILE_SWIPE_THRESHOLD && Math.abs(deltaY) < MOBILE_SWIPE_THRESHOLD) {
+    return;
+  }
+
+  if (Math.abs(deltaX) > Math.abs(deltaY)) {
+    handleDirectionalMove(deltaX > 0 ? 'right' : 'left');
+    return;
+  }
+
+  handleDirectionalMove(deltaY > 0 ? 'down' : 'up');
+}
+
 function handleKeydown(event) {
   if (event.key === 'Escape' && !settingsModal.classList.contains('hidden-modal')) {
     closeSettingsModal();
@@ -1325,12 +1359,14 @@ fogToggle.addEventListener('change', () => {
 });
 boardEl.addEventListener('click', handleBoardInteraction);
 boardEl.addEventListener('keydown', handleBoardKeydown);
+boardEl.addEventListener('touchstart', handleBoardTouchStart, { passive: true });
+boardEl.addEventListener('touchend', handleBoardTouchEnd, { passive: true });
 touchButtons.forEach(button => {
   button.addEventListener('click', () => {
     handleDirectionalMove(button.dataset.move);
   });
 });
-compactLayoutQuery.addEventListener('change', event => {
+mobileViewportQuery.addEventListener('change', event => {
   mobileViewportEnabled = event.matches;
   if (!state) {
     return;
