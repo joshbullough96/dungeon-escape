@@ -196,6 +196,102 @@ function getReachableData(grid, start, canOpenDoor) {
   return { visited, distances };
 }
 
+function getBitCount(value) {
+  let count = 0;
+  let current = value;
+
+  while (current > 0) {
+    count += current & 1;
+    current >>= 1;
+  }
+
+  return count;
+}
+
+function getProgressionReachableData(grid, start, keyPositions, doorPositions) {
+  const keyIndexByPosition = new Map(
+    keyPositions.map((position, index) => [getPositionKey(position.x, position.y), index])
+  );
+  const doorIndexByPosition = new Map(
+    doorPositions.map((position, index) => [getPositionKey(position.x, position.y), index])
+  );
+  const startKey = getPositionKey(start.x, start.y);
+  const queue = [{ x: start.x, y: start.y, keyMask: 0, doorMask: 0, distance: 0 }];
+  const visitedStates = new Set([`0,0,${startKey}`]);
+  const visitedTiles = new Set([startKey]);
+  const distances = new Map([[startKey, 0]]);
+  const directions = [
+    [0, -1],
+    [1, 0],
+    [0, 1],
+    [-1, 0]
+  ];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    const currentTile = grid[current.y]?.[current.x];
+
+    if (currentTile === TILE.EXIT) {
+      continue;
+    }
+
+    for (const [dx, dy] of directions) {
+      const nextX = current.x + dx;
+      const nextY = current.y + dy;
+      const nextTile = grid[nextY]?.[nextX];
+
+      if (!nextTile || nextTile === TILE.WALL) {
+        continue;
+      }
+
+      let nextKeyMask = current.keyMask;
+      let nextDoorMask = current.doorMask;
+      const nextPositionKey = getPositionKey(nextX, nextY);
+      const doorIndex = doorIndexByPosition.get(nextPositionKey);
+
+      if (doorIndex !== undefined) {
+        const isDoorOpen = (nextDoorMask & (1 << doorIndex)) !== 0;
+        const keysHeld = getBitCount(nextKeyMask) - getBitCount(nextDoorMask);
+
+        if (!isDoorOpen) {
+          if (keysHeld <= 0) {
+            continue;
+          }
+
+          nextDoorMask |= 1 << doorIndex;
+        }
+      }
+
+      const keyIndex = keyIndexByPosition.get(nextPositionKey);
+      if (keyIndex !== undefined) {
+        nextKeyMask |= 1 << keyIndex;
+      }
+
+      const stateKey = `${nextKeyMask},${nextDoorMask},${nextPositionKey}`;
+      if (visitedStates.has(stateKey)) {
+        continue;
+      }
+
+      visitedStates.add(stateKey);
+      visitedTiles.add(nextPositionKey);
+
+      if (!distances.has(nextPositionKey) || current.distance + 1 < distances.get(nextPositionKey)) {
+        distances.set(nextPositionKey, current.distance + 1);
+      }
+
+      queue.push({
+        x: nextX,
+        y: nextY,
+        keyMask: nextKeyMask,
+        doorMask: nextDoorMask,
+        distance: current.distance + 1
+      });
+    }
+  }
+
+  return { visited: visitedTiles, distances };
+}
+
 function canReachAll(grid, start, targets, canOpenDoor) {
   const visited = getReachableData(grid, start, canOpenDoor).visited;
   return targets.every(target => visited.has(getPositionKey(target.x, target.y)));
@@ -457,7 +553,9 @@ function createStageData(stageNumber) {
 
   return {
     rows: grid.map(row => row.join('')),
-    reservedKeys: [...reservedKeys]
+    reservedKeys: [...reservedKeys],
+    keyPositions,
+    barrierDoors
   };
 }
 
@@ -504,10 +602,9 @@ function getUnlockedHazardTypes(stageNumber) {
     .map(([type, config]) => ({ type, weight: config.weight }));
 }
 
-function chooseLootItems(grid, player, stageNumber, blockedKeys) {
+function chooseLootItems(grid, player, stageNumber, blockedKeys, progressionReachable) {
   const reachableWithoutDoor = getReachableData(grid, player, false).visited;
-  const reachableWithDoor = getReachableData(grid, player, true).visited;
-  const reachableFloors = getFloorPositions(grid, reachableWithDoor, blockedKeys);
+  const reachableFloors = getFloorPositions(grid, progressionReachable.visited, blockedKeys);
   const exitPosition = findTilePosition(grid, TILE.EXIT);
   const lockedAreaFloors = reachableFloors.filter(position => {
     return !reachableWithoutDoor.has(getPositionKey(position.x, position.y));
@@ -592,9 +689,12 @@ function chooseLootItems(grid, player, stageNumber, blockedKeys) {
   return items;
 }
 
-function chooseSupportItems(grid, player, stageNumber, blockedKeys, occupiedKeys) {
-  const reachableWithDoor = getReachableData(grid, player, true).visited;
-  const candidatePositions = getFloorPositions(grid, reachableWithDoor, new Set([...blockedKeys, ...occupiedKeys]));
+function chooseSupportItems(grid, stageNumber, blockedKeys, occupiedKeys, progressionReachable) {
+  const candidatePositions = getFloorPositions(
+    grid,
+    progressionReachable.visited,
+    new Set([...blockedKeys, ...occupiedKeys])
+  );
   const chosenKeys = new Set();
   const items = [];
 
@@ -622,8 +722,12 @@ function chooseSupportItems(grid, player, stageNumber, blockedKeys, occupiedKeys
   return items;
 }
 
-function placeHazards(grid, stageNumber, blockedKeys, occupiedKeys, rng) {
-  const available = getFloorPositions(grid, null, new Set([...blockedKeys, ...occupiedKeys]));
+function placeHazards(grid, stageNumber, blockedKeys, occupiedKeys, rng, progressionReachable) {
+  const available = getFloorPositions(
+    grid,
+    progressionReachable.visited,
+    new Set([...blockedKeys, ...occupiedKeys])
+  );
   const hazardCount = Math.min(
     2 + Math.floor((stageNumber - 1) / 3),
     Math.max(2, Math.floor((grid.length - 2) * 0.8))
@@ -670,9 +774,15 @@ function buildState(index, loot = totalLoot, health = 3) {
     }
   }
 
-  const lootItems = chooseLootItems(grid, player, stageNumber, reservedKeys);
+  const progressionReachable = getProgressionReachableData(
+    grid,
+    player,
+    stageData.keyPositions,
+    stageData.barrierDoors
+  );
+  const lootItems = chooseLootItems(grid, player, stageNumber, reservedKeys, progressionReachable);
   const lootKeys = lootItems.map(item => getPositionKey(item.x, item.y));
-  const supportItems = chooseSupportItems(grid, player, stageNumber, reservedKeys, lootKeys);
+  const supportItems = chooseSupportItems(grid, stageNumber, reservedKeys, lootKeys, progressionReachable);
   const supportKeys = supportItems.map(item => getPositionKey(item.x, item.y));
   const rng = createSeededRandom(stageNumber * 918273645);
   const hazards = placeHazards(
@@ -680,7 +790,8 @@ function buildState(index, loot = totalLoot, health = 3) {
     stageNumber,
     reservedKeys,
     [...lootKeys, ...supportKeys],
-    rng
+    rng,
+    progressionReachable
   );
 
   return {
