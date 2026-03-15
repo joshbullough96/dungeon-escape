@@ -746,7 +746,7 @@ function getTileClass(tile, isPlayer, lootItem, supportItem, hazard) {
 }
 
 function getTileSymbol(tile, isPlayer, lootItem, supportItem, hazard) {
-  if (isPlayer) return '\u{1F9D9}';
+  if (isPlayer) return state.gameOver && !state.won ? '\u{1FAA6}' : '\u{1F9D9}';
   if (supportItem) return ITEM_TYPES[supportItem.type].symbol;
   if (lootItem) return ITEM_TYPES[lootItem.type].symbol;
   if (hazard) return HAZARD_TYPES[hazard.type].symbol;
