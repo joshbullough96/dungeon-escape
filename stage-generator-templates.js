@@ -8,7 +8,9 @@
       reservedKeys: [...template.reservedKeys],
       keyPositions: template.keyPositions.map(position => ({ ...position })),
       barrierDoors: template.barrierDoors.map(position => ({ ...position })),
-      templateId: template.id
+      stageName: template.stageName ?? null,
+      templateId: template.id,
+      lootProfile: template.lootProfile ? { ...template.lootProfile } : null
     };
   }
 

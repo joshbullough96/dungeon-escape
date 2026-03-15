@@ -418,10 +418,14 @@ function getUnlockedHazardTypes(stageNumber) {
     .map(([type, config]) => ({ type, weight: config.weight }));
 }
 
-function chooseLootItems(grid, player, stageNumber, blockedKeys, progressionReachable) {
+function chooseLootItems(grid, player, stageNumber, blockedKeys, progressionReachable, lootProfile = null) {
   const reachableWithoutDoor = getReachableData(grid, player, false).visited;
   const reachableFloors = getFloorPositions(grid, progressionReachable.visited, blockedKeys);
   const exitPosition = findTilePosition(grid, TILE.EXIT);
+  const extraLootBags = lootProfile?.extraLootBags ?? 0;
+  const lootValueBonus = lootProfile?.lootValueBonus ?? 0;
+  const gemChance = lootProfile?.gemChance ?? 0.45;
+  const guaranteedGems = lootProfile?.guaranteedGems ?? 0;
   const lockedAreaFloors = reachableFloors.filter(position => {
     return !reachableWithoutDoor.has(getPositionKey(position.x, position.y));
   });
@@ -438,7 +442,7 @@ function chooseLootItems(grid, player, stageNumber, blockedKeys, progressionReac
     farFromExitFloors = sortedByDistance.slice(0, Math.max(1, Math.ceil(sortedByDistance.length * 0.35)));
   }
 
-  const desiredCount = Math.min(reachableFloors.length, 2 + Math.floor((stageNumber - 1) / 10));
+  const desiredCount = Math.min(reachableFloors.length, 2 + Math.floor((stageNumber - 1) / 10) + extraLootBags);
   const chosenKeys = new Set();
   const items = [];
 
@@ -459,7 +463,7 @@ function chooseLootItems(grid, player, stageNumber, blockedKeys, progressionReac
         x: position.x,
         y: position.y,
         type: 'loot',
-        value: getRandomInt(15, 35 + Math.floor(stageNumber / 2))
+        value: getRandomInt(15 + lootValueBonus, 35 + Math.floor(stageNumber / 2) + lootValueBonus)
       });
     }
   }
@@ -471,7 +475,7 @@ function chooseLootItems(grid, player, stageNumber, blockedKeys, progressionReac
         x: position.x,
         y: position.y,
         type: 'loot',
-        value: getRandomInt(15, 35 + Math.floor(stageNumber / 2))
+        value: getRandomInt(15 + lootValueBonus, 35 + Math.floor(stageNumber / 2) + lootValueBonus)
       });
     }
   }
@@ -486,19 +490,30 @@ function chooseLootItems(grid, player, stageNumber, blockedKeys, progressionReac
       x: position.x,
       y: position.y,
       type: 'loot',
-      value: getRandomInt(15, 35 + Math.floor(stageNumber / 2))
+      value: getRandomInt(15 + lootValueBonus, 35 + Math.floor(stageNumber / 2) + lootValueBonus)
     });
   }
 
-  if (stageNumber >= ITEM_TYPES.gem.unlockStage && reachableFloors.length > items.length && Math.random() < 0.45) {
-    const position = takePosition(farFromExitFloors.length > 0 ? farFromExitFloors : reachableFloors);
-    if (position) {
+  if (stageNumber >= ITEM_TYPES.gem.unlockStage && reachableFloors.length > items.length) {
+    let gemsToPlace = guaranteedGems;
+
+    if (Math.random() < gemChance) {
+      gemsToPlace += 1;
+    }
+
+    while (gemsToPlace > 0 && reachableFloors.length > items.length) {
+      const position = takePosition(farFromExitFloors.length > 0 ? farFromExitFloors : reachableFloors);
+      if (!position) {
+        break;
+      }
+
       items.push({
         x: position.x,
         y: position.y,
         type: 'gem',
         value: 100
       });
+      gemsToPlace -= 1;
     }
   }
 
@@ -577,6 +592,10 @@ function getHazardAt(x, y) {
 function buildState(index, loot = totalLoot, health = 3) {
   const stageNumber = index + 1;
   const stageData = StageGeneration.createStageData(stageNumber, createStageGenerationContext());
+  console.info(
+    `[Stage ${stageNumber}] method=${stageData.method}` +
+    (stageData.templateId ? ` template=${stageData.templateId}` : '')
+  );
   const grid = stageData.rows.map(row => row.split(''));
   const reservedKeys = new Set(stageData.reservedKeys);
   let player = { x: 0, y: 0 };
@@ -596,7 +615,17 @@ function buildState(index, loot = totalLoot, health = 3) {
     stageData.keyPositions,
     stageData.barrierDoors
   );
-  const lootItems = chooseLootItems(grid, player, stageNumber, reservedKeys, progressionReachable);
+  const lootBlockedKeys = stageData.lootProfile?.allowDensePlacement
+    ? new Set([getPositionKey(player.x, player.y)])
+    : reservedKeys;
+  const lootItems = chooseLootItems(
+    grid,
+    player,
+    stageNumber,
+    lootBlockedKeys,
+    progressionReachable,
+    stageData.lootProfile
+  );
   const lootKeys = lootItems.map(item => getPositionKey(item.x, item.y));
   const supportItems = chooseSupportItems(grid, stageNumber, reservedKeys, lootKeys, progressionReachable);
   const supportKeys = supportItems.map(item => getPositionKey(item.x, item.y));
@@ -621,6 +650,7 @@ function buildState(index, loot = totalLoot, health = 3) {
     loot,
     mapStartLoot: loot,
     mapStartHealth: health,
+    stageName: stageData.stageName ?? null,
     lootItems,
     supportItems,
     hazards,
@@ -787,7 +817,10 @@ function loadStage(index, loot = totalLoot, health = 3, message = null) {
   currentStageIndex = index;
   state = buildState(index, loot, health);
   isStageTransitioning = false;
-  setMessage(message ?? `Stage ${state.stageNumber} begins. The dungeon grows more dangerous.`);
+  const defaultMessage = state.stageName
+    ? `${state.stageName} begins. Riches glitter through the dark.`
+    : `Stage ${state.stageNumber} begins. The dungeon grows more dangerous.`;
+  setMessage(message ?? defaultMessage);
   render();
 }
 

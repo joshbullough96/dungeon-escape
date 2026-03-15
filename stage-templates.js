@@ -1,5 +1,6 @@
 (function () {
   const templateSets = {
+    // compact grids are used for mobile devices
     compact: [
       {
         id: 'compact-loop',
@@ -69,7 +70,15 @@
     compactLooting: [
       {
         id: 'compact-trove',
+        stageName: 'Treasure Trove',
         size: 9,
+        lootProfile: {
+          allowDensePlacement: true,
+          extraLootBags: 10,
+          gemChance: 1,
+          guaranteedGems: 5,
+          lootValueBonus: 20
+        },
         rows: [
           '#########',
           '#P..#..E#',
@@ -100,6 +109,7 @@
         ]
       }
     ],
+    // standard grids are used for desktop and tablets.
     standard: [
       {
         id: 'vault-run',
@@ -180,7 +190,15 @@
     standardLooting: [
       {
         id: 'gold-vault',
+        stageName: 'Gold Vault',
         size: 12,
+        lootProfile: {
+          allowDensePlacement: true,
+          extraLootBags: 20,
+          gemChance: 1,
+          guaranteedGems: 5,
+          lootValueBonus: 25
+        },
         rows: [
           '############',
           '#P...#....E#',
