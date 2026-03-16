@@ -33,6 +33,33 @@
     return candidates;
   }
 
+  function createKeyDistribution(roomCandidates, rng) {
+    const counts = Array(roomCandidates.length).fill(1);
+
+    for (let donor = roomCandidates.length - 1; donor > 0; donor--) {
+      if (counts[donor] <= 0) {
+        continue;
+      }
+
+      const recipients = [];
+      for (let recipient = 0; recipient < donor; recipient++) {
+        if (counts[recipient] < roomCandidates[recipient].length) {
+          recipients.push(recipient);
+        }
+      }
+
+      if (recipients.length === 0 || rng() < 0.45) {
+        continue;
+      }
+
+      const recipientIndex = recipients[Math.floor(rng() * recipients.length)];
+      counts[donor] -= 1;
+      counts[recipientIndex] += 1;
+    }
+
+    return counts;
+  }
+
   registry.quadrant = function createQuadrantStageData(stageNumber, context) {
     const {
       createSeededRandom,
@@ -108,39 +135,55 @@
         ? [connectors.topLeftToTopRight, connectors.topRightToBottomRight]
         : [connectors.topLeftToTopRight];
 
-    grid[connectors.bottomLeftToTopLeft.y][connectors.bottomLeftToTopLeft.x] = TILE.FLOOR;
-    if (lockedDoorCount < 2) {
+    if (lockedDoorCount === 1) {
       grid[connectors.topRightToBottomRight.y][connectors.topRightToBottomRight.x] = TILE.FLOOR;
-    }
-    if (lockedDoorCount < 3) {
+      grid[connectors.bottomRightToBottomLeft.y][connectors.bottomRightToBottomLeft.x] = TILE.FLOOR;
+    } else if (lockedDoorCount === 2) {
       grid[connectors.bottomRightToBottomLeft.y][connectors.bottomRightToBottomLeft.x] = TILE.FLOOR;
     }
 
-    const keyPositions = [];
-    const barrierDoors = [];
+    const roomCandidates = pathRooms.slice(0, lockedDoorCount).map(roomName => getRoomCandidates(getRoomBounds(size, roomName)));
+    const keyDistribution = createKeyDistribution(roomCandidates, rng);
+    const keyGroups = [];
+    let barrierDoors = [];
     let routeStart = start;
 
     for (let index = 0; index < lockedDoorCount; index++) {
       const roomBounds = getRoomBounds(size, pathRooms[index]);
       const door = pathConnectors[index];
-      const keyPosition = chooseFarthestPosition(
-        grid,
-        routeStart,
-        (x, y) => {
-          return x >= roomBounds.minX &&
-            x <= roomBounds.maxX &&
-            y >= roomBounds.minY &&
-            y <= roomBounds.maxY &&
-            !(x === routeStart.x && y === routeStart.y);
-        },
-        rng
-      ) || getRoomCandidates(roomBounds).slice(-1)[0];
+      const used = new Set();
+      const roomKeys = [];
 
-      keyPositions.push({ x: keyPosition.x, y: keyPosition.y });
+      for (let count = 0; count < keyDistribution[index]; count++) {
+        const keyPosition = chooseFarthestPosition(
+          grid,
+          routeStart,
+          (x, y) => {
+            const key = `${x},${y}`;
+            return x >= roomBounds.minX &&
+              x <= roomBounds.maxX &&
+              y >= roomBounds.minY &&
+              y <= roomBounds.maxY &&
+              !(x === routeStart.x && y === routeStart.y) &&
+              !used.has(key);
+          },
+          rng
+        ) || roomCandidates[index].find(position => !used.has(`${position.x},${position.y}`));
+
+        if (!keyPosition) {
+          continue;
+        }
+
+        used.add(`${keyPosition.x},${keyPosition.y}`);
+        roomKeys.push({ x: keyPosition.x, y: keyPosition.y });
+      }
+
+      keyGroups.push(roomKeys);
       barrierDoors.push({ x: door.x, y: door.y });
       grid[door.y][door.x] = TILE.DOOR;
       routeStart = door.postDoor(door);
     }
+    const keyPositions = keyGroups.flat();
 
     const finalRoomBounds = getRoomBounds(size, pathRooms[pathRooms.length - 1]);
     const exitEntry = lockedDoorCount === 3
@@ -166,17 +209,30 @@
       getPositionKey(exitPosition.x, exitPosition.y),
       getPositionKey(exitEntry.x, exitEntry.y)
     ]);
+
+    for (const connector of Object.values(connectors)) {
+      const preConnector = connector.preDoor(connector);
+      const postConnector = connector.postDoor(connector);
+      reservedKeys.add(getPositionKey(connector.x, connector.y));
+      reservedKeys.add(getPositionKey(preConnector.x, preConnector.y));
+      reservedKeys.add(getPositionKey(postConnector.x, postConnector.y));
+    }
+
     const routeKeys = new Set();
     let routeCursor = start;
 
     for (let index = 0; index < barrierDoors.length; index++) {
-      const keyPosition = keyPositions[index];
+      const roomKeys = keyGroups[index];
       const door = pathConnectors[index];
       const preDoor = door.preDoor(door);
       const postDoor = door.postDoor(door);
 
-      addRouteSegment(routeKeys, routeCursor, keyPosition);
-      addRouteSegment(routeKeys, keyPosition, preDoor);
+      for (const keyPosition of roomKeys) {
+        addRouteSegment(routeKeys, routeCursor, keyPosition);
+        routeCursor = keyPosition;
+      }
+
+      addRouteSegment(routeKeys, routeCursor, preDoor);
       addRouteSegment(routeKeys, preDoor, postDoor);
       reservedKeys.add(getPositionKey(door.x, door.y));
       reservedKeys.add(getPositionKey(preDoor.x, preDoor.y));
@@ -226,13 +282,13 @@
           keyPositions,
           doorPositions: barrierDoors
         },
-        { start, targets: [keyPositions[0]], canOpenDoor: false }
+        { start, targets: keyGroups[0], canOpenDoor: false }
       ],
       rng
     );
 
     if (
-      !canReachAll(grid, start, [keyPositions[0]], false) ||
+      !canReachAll(grid, start, keyGroups[0], false) ||
       !canReachAllWithProgression(grid, start, keyPositions, barrierDoors, unlockedTargets)
     ) {
       for (let rowIndex = 0; rowIndex < grid.length; rowIndex++) {

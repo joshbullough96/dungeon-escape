@@ -465,6 +465,33 @@ function getFloorPositions(grid, reachableKeys, blockedKeys = new Set()) {
   return positions;
 }
 
+function createHazardBlockedKeys(grid, reservedKeys) {
+  const blocked = new Set(reservedKeys);
+  const directions = [
+    [0, -1],
+    [1, 0],
+    [0, 1],
+    [-1, 0]
+  ];
+
+  for (const key of reservedKeys) {
+    const [x, y] = key.split(',').map(Number);
+
+    for (const [dx, dy] of directions) {
+      const nextX = x + dx;
+      const nextY = y + dy;
+
+      if (grid[nextY]?.[nextX] !== TILE.FLOOR) {
+        continue;
+      }
+
+      blocked.add(getPositionKey(nextX, nextY));
+    }
+  }
+
+  return blocked;
+}
+
 function getUnlockedHazardTypes(stageNumber) {
   return Object.entries(HAZARD_TYPES)
     .filter(([, config]) => stageNumber >= config.unlockStage)
@@ -679,10 +706,11 @@ function buildState(index, loot = totalLoot, health = 3) {
   const supportItems = chooseSupportItems(grid, stageNumber, reservedKeys, lootKeys, progressionReachable);
   const supportKeys = supportItems.map(item => getPositionKey(item.x, item.y));
   const rng = createSeededRandom(stageNumber * 918273645);
+  const hazardBlockedKeys = createHazardBlockedKeys(grid, reservedKeys);
   const hazards = placeHazards(
     grid,
     stageNumber,
-    reservedKeys,
+    hazardBlockedKeys,
     [...lootKeys, ...supportKeys],
     rng,
     progressionReachable

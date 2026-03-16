@@ -8,6 +8,33 @@
     };
   }
 
+  function createKeyDistribution(segmentCandidates, rng) {
+    const counts = Array(segmentCandidates.length).fill(1);
+
+    for (let donor = segmentCandidates.length - 1; donor > 0; donor--) {
+      if (counts[donor] <= 0) {
+        continue;
+      }
+
+      const recipients = [];
+      for (let recipient = 0; recipient < donor; recipient++) {
+        if (counts[recipient] < segmentCandidates[recipient].length) {
+          recipients.push(recipient);
+        }
+      }
+
+      if (recipients.length === 0 || rng() < 0.45) {
+        continue;
+      }
+
+      const recipientIndex = recipients[Math.floor(rng() * recipients.length)];
+      counts[donor] -= 1;
+      counts[recipientIndex] += 1;
+    }
+
+    return counts;
+  }
+
   registry.linear = function createLinearStageData(stageNumber, context) {
     const {
       createSeededRandom,
@@ -47,34 +74,58 @@
     const lastDoor = barrierDoors[barrierDoors.length - 1];
     const leftDoorApproach = { x: firstDoor.x - 1, y: firstDoor.y };
     const rightDoorApproach = { x: lastDoor.x + 1, y: lastDoor.y };
+    const segmentCandidates = barrierDoors.map((door, index) => {
+      const previousDoor = barrierDoors[index - 1] ?? null;
+      const candidates = [];
 
-    const keyPositions = barrierDoors.map((door, index) => {
+      for (let y = 1; y < size - 1; y++) {
+        for (let x = 1; x < size - 1; x++) {
+          if (previousDoor) {
+            if (x > previousDoor.x && x < door.x) {
+              candidates.push({ x, y });
+            }
+            continue;
+          }
+
+          if (x < door.x && !(x === start.x && y === start.y) && !(x === leftDoorApproach.x && y === leftDoorApproach.y)) {
+            candidates.push({ x, y });
+          }
+        }
+      }
+
+      return candidates;
+    });
+    const keyDistribution = createKeyDistribution(segmentCandidates, rng);
+    const keyGroups = segmentCandidates.map((segment, index) => {
       const previousDoor = barrierDoors[index - 1] ?? null;
       const segmentStart = previousDoor
         ? { x: previousDoor.x + 1, y: previousDoor.y }
         : start;
+      const used = new Set();
+      const positions = [];
 
-      const candidate = chooseFarthestPosition(
-        grid,
-        segmentStart,
-        (x, y) => {
-          if (previousDoor) {
-            return x > previousDoor.x && x < door.x && !(x === segmentStart.x && y === segmentStart.y);
-          }
+      for (let count = 0; count < keyDistribution[index]; count++) {
+        const candidate = chooseFarthestPosition(
+          grid,
+          segmentStart,
+          (x, y) => {
+            const key = `${x},${y}`;
+            return segment.some(position => position.x === x && position.y === y) && !used.has(key);
+          },
+          rng
+        ) || segment.find(position => !used.has(`${position.x},${position.y}`));
 
-          return x < door.x && !(x === start.x && y === start.y) && !(x === leftDoorApproach.x && y === leftDoorApproach.y);
-        },
-        rng
-      );
+        if (!candidate) {
+          continue;
+        }
 
-      if (candidate) {
-        return candidate;
+        used.add(`${candidate.x},${candidate.y}`);
+        positions.push(candidate);
       }
 
-      return previousDoor
-        ? { x: previousDoor.x + 1, y: Math.min(size - 2, previousDoor.y + 1) }
-        : { x: firstDoor.x - 2, y: size - 2 };
+      return positions;
     });
+    const keyPositions = keyGroups.flat();
 
     const exitPosition = chooseFarthestPosition(
       grid,
@@ -127,7 +178,7 @@
       leftCandidates,
       leftWallAttempts,
       [
-        { start, targets: [keyPositions[0], leftDoorApproach], canOpenDoor: false }
+        { start, targets: [...keyGroups[0], leftDoorApproach], canOpenDoor: false }
       ],
       rng
     );
@@ -137,7 +188,7 @@
       corridorCandidates,
       corridorWallAttempts,
       [
-        { start, targets: [keyPositions[0], leftDoorApproach], canOpenDoor: false },
+        { start, targets: [...keyGroups[0], leftDoorApproach], canOpenDoor: false },
         {
           start,
           targets: unlockedTargets,
@@ -180,10 +231,14 @@
 
     for (let index = 0; index < barrierDoors.length; index++) {
       const door = barrierDoors[index];
-      const keyPosition = keyPositions[index];
+      const segmentKeys = keyGroups[index];
 
-      addRouteSegment(routeKeys, routeStart, keyPosition);
-      addRouteSegment(routeKeys, keyPosition, { x: door.x - 1, y: door.y });
+      for (const keyPosition of segmentKeys) {
+        addRouteSegment(routeKeys, routeStart, keyPosition);
+        routeStart = keyPosition;
+      }
+
+      addRouteSegment(routeKeys, routeStart, { x: door.x - 1, y: door.y });
       reservedKeys.add(getPositionKey(door.x, door.y));
       reservedKeys.add(getPositionKey(door.x - 1, door.y));
       reservedKeys.add(getPositionKey(door.x + 1, door.y));
