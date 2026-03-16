@@ -123,11 +123,24 @@ const modalBackdrop = document.getElementById('modalBackdrop');
 const fogToggle = document.getElementById('fogToggle');
 const legendMoreEl = document.getElementById('legendMore');
 const touchButtons = document.querySelectorAll('.touch-btn');
+const playerIconSelect = document.getElementById('playerIconSelect');
 const mobileViewportQuery = window.matchMedia('(max-width: 560px)');
 const mobileLegendQuery = window.matchMedia('(max-width: 860px)');
 const MOBILE_VIEWPORT_SIZE = 5;
 const MOBILE_DARKNESS_RADIUS = 1;
 const MOBILE_SWIPE_THRESHOLD = 28;
+const expansionToggle = document.getElementById('expansionToggle');
+
+const PLAYER_ICONS = {
+  wizard: '\u{1F9D9}',
+  elf: '\u{1F9DD}',
+  ninja: '\u{1F977}',
+  knight: '\u{1F934}',
+  princess: '\u{1F478}'
+};
+
+const EXPANSION_HAZARD_TYPES = new Set(['poison', 'fire', 'zombie']);
+const EXPANSION_ITEM_TYPES = new Set(['meat', 'flashlight', 'shield']);
 
 let state = null;
 let currentStageIndex = 0;
@@ -138,7 +151,9 @@ let isStageTransitioning = false;
 let touchStartPoint = null;
 
 const settings = {
-  fogOfWarEnabled: true
+  fogOfWarEnabled: true,
+  playerIcon: 'wizard',
+  expansionContentEnabled: true
 };
 
 function syncLegendExpansion() {
@@ -494,7 +509,10 @@ function createHazardBlockedKeys(grid, reservedKeys) {
 
 function getUnlockedHazardTypes(stageNumber) {
   return Object.entries(HAZARD_TYPES)
-    .filter(([, config]) => stageNumber >= config.unlockStage)
+    .filter(([type, config]) => {
+      return stageNumber >= config.unlockStage &&
+        (settings.expansionContentEnabled || !EXPANSION_HAZARD_TYPES.has(type));
+    })
     .map(([type, config]) => ({ type, weight: config.weight }));
 }
 
@@ -610,7 +628,11 @@ function chooseSupportItems(grid, stageNumber, blockedKeys, occupiedKeys, progre
   const items = [];
 
   function maybePlace(type, chance) {
-    if (stageNumber < ITEM_TYPES[type].unlockStage || Math.random() > chance) {
+    if (
+      stageNumber < ITEM_TYPES[type].unlockStage ||
+      (!settings.expansionContentEnabled && EXPANSION_ITEM_TYPES.has(type)) ||
+      Math.random() > chance
+    ) {
       return;
     }
 
@@ -815,7 +837,7 @@ function getTileSymbol(tile, isPlayer, lootItem, supportItem, hazard) {
   if (isPlayer) {
     return state.gameOver && !state.won
       ? TILE_TYPES[TILE.PLAYER].defeatedSymbol
-      : TILE_TYPES[TILE.PLAYER].symbol;
+      : PLAYER_ICONS[settings.playerIcon];
   }
   if (supportItem) return ITEM_TYPES[supportItem.type].symbol;
   if (lootItem) return ITEM_TYPES[lootItem.type].symbol;
@@ -867,6 +889,8 @@ function openSettingsModal() {
   settingsModal.classList.remove('hidden-modal');
   settingsModal.setAttribute('aria-hidden', 'false');
   fogToggle.checked = settings.fogOfWarEnabled;
+  playerIconSelect.value = settings.playerIcon;
+  expansionToggle.checked = settings.expansionContentEnabled;
 }
 
 function closeSettingsModal() {
@@ -948,6 +972,14 @@ function restartCurrentStage() {
     state.mapStartHealth,
     `You return to the start of stage ${state.stageNumber}.`
   );
+}
+
+function reloadStageForSettings(message) {
+  if (!state || isStageTransitioning) {
+    return;
+  }
+
+  loadStage(state.stageIndex, state.mapStartLoot, state.mapStartHealth, message);
 }
 
 function loadNextStage(manualAdvance = false) {
@@ -1384,6 +1416,18 @@ modalBackdrop.addEventListener('click', closeSettingsModal);
 fogToggle.addEventListener('change', () => {
   settings.fogOfWarEnabled = fogToggle.checked;
   render();
+});
+playerIconSelect.addEventListener('change', () => {
+  settings.playerIcon = playerIconSelect.value;
+  render();
+});
+expansionToggle.addEventListener('change', () => {
+  settings.expansionContentEnabled = expansionToggle.checked;
+  reloadStageForSettings(
+    settings.expansionContentEnabled
+      ? `Expansion hazards and items are back in stage ${state.stageNumber}.`
+      : `Expansion hazards and items are now off for stage ${state.stageNumber}.`
+  );
 });
 boardEl.addEventListener('click', handleBoardInteraction);
 boardEl.addEventListener('keydown', handleBoardKeydown);
