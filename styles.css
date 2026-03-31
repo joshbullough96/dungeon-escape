@@ -11,9 +11,10 @@
   --heal: #9c6a44;
   --power: #186a63;
   --door: #672d33;
+  --door-unlocked: #8f8f8f;
   --exit: #729796;
   --trap: #7c5143;
-  --spikes: #8f8f8f;
+  --spikes: #a63a3a;
   --poison: #5f8a49;
   --arrows: #7a6a57;
   --fire: #7e4729;
@@ -243,12 +244,13 @@ button,
 .tile.gem { background: var(--gem); color: #06253b; }
 .tile.heal { background: var(--heal); color: #fff4ea; }
 .tile.power { background: var(--power); color: #fff4ea; font-weight: bold; }
-.tile.spikes { background: var(--spikes); color: #161616; }
+.tile.spikes { background: var(--spikes); color: #fff1f1; }
 .tile.poison { background: var(--poison); color: #0f2008; }
 .tile.arrows { background: var(--arrows); color: #18110b; }
 .tile.fire { background: var(--fire); color: #2b1205; }
 .tile.zombie { background: var(--zombie); color: #0e1b09; }
 .tile.door { background: var(--door); }
+.tile.door-unlocked { background: var(--door-unlocked); color: #161616; }
 .tile.exit { background: var(--exit); color: #08353b; font-weight: bold; }
 .tile.trap { background: var(--trap); }
 .tile.hidden {

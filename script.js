@@ -4,6 +4,7 @@ const TILE = {
   PLAYER: 'P',
   KEY: 'K',
   DOOR: 'D',
+  UNLOCKED_DOOR: 'O',
   EXIT: 'E'
 };
 
@@ -29,6 +30,10 @@ const TILE_TYPES = {
   },
   [TILE.DOOR]: {
     className: 'door',
+    symbol: '\u{1F6AA}'
+  },
+  [TILE.UNLOCKED_DOOR]: {
+    className: 'door-unlocked',
     symbol: '\u{1F6AA}'
   },
   [TILE.EXIT]: {
@@ -115,7 +120,6 @@ const lootEl = document.getElementById('loot');
 const messageEl = document.getElementById('message');
 const effectStatusEl = document.getElementById('effectStatus');
 const restartBtn = document.getElementById('restartBtn');
-const newMapBtn = document.getElementById('newMapBtn');
 const settingsBtn = document.getElementById('settingsBtn');
 const settingsModal = document.getElementById('settingsModal');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
@@ -821,7 +825,6 @@ function updateStats() {
   healthEl.textContent = state.health;
   keyCountEl.textContent = state.keys;
   lootEl.textContent = state.loot;
-  newMapBtn.disabled = state.stageNumber >= STAGE_COUNT || isStageTransitioning;
   updateEffectStatus();
 }
 
@@ -830,6 +833,9 @@ function getTileClass(tile, isPlayer, lootItem, supportItem, hazard) {
   if (supportItem) return ITEM_TYPES[supportItem.type].className;
   if (lootItem) return ITEM_TYPES[lootItem.type].className;
   if (hazard) return HAZARD_TYPES[hazard.type].className;
+  if (tile === TILE.DOOR && state.keys > 0) {
+    return TILE_TYPES[TILE.UNLOCKED_DOOR].className;
+  }
   return TILE_TYPES[tile]?.className ?? TILE_TYPES[TILE.FLOOR].className;
 }
 
@@ -965,13 +971,31 @@ function loadStage(index, loot = totalLoot, health = 3, message = null) {
   render();
 }
 
-function restartCurrentStage() {
-  loadStage(
-    state.stageIndex,
-    state.mapStartLoot,
-    state.mapStartHealth,
-    `You return to the start of stage ${state.stageNumber}.`
-  );
+async function restartCurrentStage() {
+  if (window.Swal) {
+    const result = await window.Swal.fire({
+      title: 'Restart?',
+      text: 'Are you sure you want to go back to the first stage and lose your progress?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Restart Run',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      background: '#1b1f27',
+      color: '#eceff4',
+      confirmButtonColor: '#729796',
+      cancelButtonColor: '#989ba1'
+    });
+
+    if (!result.isConfirmed) {
+      return;
+    }
+  } else if (!window.confirm('Are you sure you want to go back to the first stage and lose your progress?')) {
+    return;
+  }
+
+  totalLoot = 0;
+  loadStage(0, 0, 3, 'You begin the dungeon again from the start.');
 }
 
 function reloadStageForSettings(message) {
@@ -1209,9 +1233,9 @@ function triggerHazardAt(x, y) {
         break;
       }
 
-      if (!applyDamage(2, 'Fire scorches you for 2 damage.')) {
-        state.burnTicks += 3;
-        setMessage(`Fire scorches you for 2 damage. ${state.health} health remaining, and the flames keep burning.`);
+      if (!applyDamage(1, 'Fire scorches you.')) {
+        state.burnTicks += 2;
+        setMessage(`Fire scorches you. ${state.health} health remaining, and the flames keep burning.`);
       }
       break;
     case 'zombie':
@@ -1271,7 +1295,7 @@ function movePlayer(dx, dy) {
     setMessage(`You picked up a key. ${state.keys} key${state.keys === 1 ? '' : 's'} in hand.`);
   } else if (nextTile === TILE.DOOR) {
     state.keys -= 1;
-    state.grid[nextY][nextX] = TILE.FLOOR;
+    state.grid[nextY][nextX] = TILE.UNLOCKED_DOOR;
     setMessage(`You unlocked the door. ${state.keys} key${state.keys === 1 ? '' : 's'} remaining.`);
   } else if (nextTile === TILE.EXIT) {
     celebrateAndAdvance();
@@ -1403,13 +1427,6 @@ function handleKeydown(event) {
 }
 
 restartBtn.addEventListener('click', restartCurrentStage);
-newMapBtn.addEventListener('click', () => {
-  if (isStageTransitioning) {
-    return;
-  }
-
-  loadNextStage(true);
-});
 settingsBtn.addEventListener('click', openSettingsModal);
 closeSettingsBtn.addEventListener('click', closeSettingsModal);
 modalBackdrop.addEventListener('click', closeSettingsModal);
@@ -1448,6 +1465,15 @@ mobileViewportQuery.addEventListener('change', event => {
 });
 mobileLegendQuery.addEventListener('change', syncLegendExpansion);
 window.addEventListener('keydown', handleKeydown);
+window.goToStage = stageNumber => {
+  const parsedStage = Number(stageNumber);
+  if (!Number.isInteger(parsedStage) || parsedStage < 1 || parsedStage > STAGE_COUNT) {
+    return;
+  }
+
+  totalLoot = 0;
+  loadStage(parsedStage - 1, 0, 3, `Jumped to stage ${parsedStage} for testing.`);
+};
 
 syncLegendExpansion();
 loadStage(currentStageIndex, totalLoot, 3);
