@@ -119,12 +119,14 @@ const keyCountEl = document.getElementById('keyCount');
 const lootEl = document.getElementById('loot');
 const messageEl = document.getElementById('message');
 const effectStatusEl = document.getElementById('effectStatus');
+const floodToastEl = document.getElementById('floodToast');
 const restartBtn = document.getElementById('restartBtn');
 const settingsBtn = document.getElementById('settingsBtn');
 const settingsModal = document.getElementById('settingsModal');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 const modalBackdrop = document.getElementById('modalBackdrop');
 const fogToggle = document.getElementById('fogToggle');
+const floodToggle = document.getElementById('floodToggle');
 const legendMoreEl = document.getElementById('legendMore');
 const touchButtons = document.querySelectorAll('.touch-btn');
 const playerIconSelect = document.getElementById('playerIconSelect');
@@ -133,6 +135,9 @@ const mobileLegendQuery = window.matchMedia('(max-width: 860px)');
 const MOBILE_VIEWPORT_SIZE = 5;
 const MOBILE_DARKNESS_RADIUS = 1;
 const MOBILE_SWIPE_THRESHOLD = 28;
+const FLOOD_START_STAGE = 4;
+const FLOOD_GRACE_MOVES = 30;
+const FLOOD_EXPANSION_INTERVAL = 2;
 const expansionToggle = document.getElementById('expansionToggle');
 
 const PLAYER_ICONS = {
@@ -149,6 +154,7 @@ const EXPANSION_ITEM_TYPES = new Set(['meat', 'flashlight', 'shield']);
 let state = null;
 let currentStageIndex = 0;
 let nextStageTimeoutId = null;
+let floodToastTimeoutId = null;
 let totalLoot = 0;
 let mobileViewportEnabled = mobileViewportQuery.matches;
 let isStageTransitioning = false;
@@ -157,7 +163,8 @@ let touchStartPoint = null;
 const settings = {
   fogOfWarEnabled: true,
   playerIcon: 'wizard',
-  expansionContentEnabled: true
+  expansionContentEnabled: true,
+  encroachingFloodEnabled: true
 };
 
 function syncLegendExpansion() {
@@ -695,6 +702,57 @@ function getHazardAt(x, y) {
   return state.hazards.find(item => item.x === x && item.y === y) ?? null;
 }
 
+function createFloodState(stageNumber, grid, reservedKeys, barrierDoors) {
+  if (stageNumber < FLOOD_START_STAGE) {
+    return {
+      enabled: false,
+      theme: null,
+      graceMoves: 0,
+      expansionInterval: FLOOD_EXPANSION_INTERVAL,
+      protectedKeys: new Set(),
+      announced: false
+    };
+  }
+
+  const protectedKeys = new Set(reservedKeys);
+  const exitPosition = findTilePosition(grid, TILE.EXIT);
+  const directions = [
+    [0, -1],
+    [1, 0],
+    [0, 1],
+    [-1, 0]
+  ];
+
+  function protectArea(position) {
+    if (!position) {
+      return;
+    }
+
+    protectedKeys.add(getPositionKey(position.x, position.y));
+    for (const [dx, dy] of directions) {
+      const nextX = position.x + dx;
+      const nextY = position.y + dy;
+      if (!grid[nextY]?.[nextX] || grid[nextY][nextX] === TILE.WALL) {
+        continue;
+      }
+
+      protectedKeys.add(getPositionKey(nextX, nextY));
+    }
+  }
+
+  barrierDoors.forEach(protectArea);
+  protectArea(exitPosition);
+
+  return {
+    enabled: true,
+    theme: stageNumber % 2 === 1 ? 'water' : 'sand',
+    graceMoves: settings.encroachingFloodEnabled ? FLOOD_GRACE_MOVES : Infinity,
+    expansionInterval: FLOOD_EXPANSION_INTERVAL,
+    protectedKeys,
+    announced: false
+  };
+}
+
 function buildState(index, loot = totalLoot, health = 3) {
   const stageNumber = index + 1;
   const stageData = StageGeneration.createStageData(stageNumber, createStageGenerationContext());
@@ -757,6 +815,7 @@ function buildState(index, loot = totalLoot, health = 3) {
     lootItems,
     supportItems,
     hazards,
+    flood: createFloodState(stageNumber, grid, reservedKeys, stageData.barrierDoors),
     effects: {
       flashlightMoves: 0,
       shieldCharges: 0
@@ -773,6 +832,32 @@ function setMessage(text) {
   messageEl.textContent = text;
 }
 
+function clearFloodToastTimeout() {
+  if (floodToastTimeoutId !== null) {
+    clearTimeout(floodToastTimeoutId);
+    floodToastTimeoutId = null;
+  }
+}
+
+function hideFloodToast() {
+  clearFloodToastTimeout();
+  floodToastEl.textContent = '';
+  floodToastEl.className = 'flood-toast hidden-flood-toast';
+}
+
+function showFloodToast(text) {
+  if (!state?.flood?.enabled) {
+    return;
+  }
+
+  clearFloodToastTimeout();
+  floodToastEl.textContent = text;
+  floodToastEl.className = `flood-toast ${state.flood.theme}-toast`;
+  floodToastTimeoutId = setTimeout(() => {
+    hideFloodToast();
+  }, 3200);
+}
+
 function clearNextStageTimeout() {
   if (nextStageTimeoutId !== null) {
     clearTimeout(nextStageTimeoutId);
@@ -780,6 +865,79 @@ function clearNextStageTimeout() {
   }
 
   isStageTransitioning = false;
+}
+
+function getFloodCompletedWaves() {
+  if (!state?.flood?.enabled || state.moves < state.flood.graceMoves) {
+    return 0;
+  }
+
+  return Math.floor((state.moves - state.flood.graceMoves) / state.flood.expansionInterval);
+}
+
+function getFloodWarningWave() {
+  if (!state?.flood?.enabled || state.moves < state.flood.graceMoves) {
+    return null;
+  }
+
+  return getFloodCompletedWaves();
+}
+
+function getFloodRing(x, y) {
+  const maxX = state.grid[0].length - 2;
+  const maxY = state.grid.length - 2;
+  return Math.min(x - 1, y - 1, maxX - x, maxY - y);
+}
+
+function getFloodTileState(x, y) {
+  if (!state?.flood?.enabled) {
+    return 'safe';
+  }
+
+  if (state.player.x === x && state.player.y === y) {
+    return 'safe';
+  }
+
+  const tile = state.grid[y]?.[x];
+  if (!tile || tile === TILE.WALL) {
+    return 'safe';
+  }
+
+  const positionKey = getPositionKey(x, y);
+  if (state.flood.protectedKeys.has(positionKey)) {
+    return 'safe';
+  }
+
+  const warningWave = getFloodWarningWave();
+  if (warningWave === null) {
+    return 'safe';
+  }
+
+  const ring = getFloodRing(x, y);
+  if (ring < warningWave) {
+    return 'flooded';
+  }
+
+  if (ring === warningWave) {
+    return 'warning';
+  }
+
+  return 'safe';
+}
+
+function updateFloodProgress() {
+  if (!state?.flood?.enabled || state.gameOver || state.won) {
+    return;
+  }
+
+  if (!state.flood.announced && state.moves >= state.flood.graceMoves) {
+    state.flood.announced = true;
+    showFloodToast(
+      state.flood.theme === 'water'
+        ? 'Water is closing in from the dungeon edges.'
+        : 'Sand is pouring in from the dungeon edges.'
+    );
+  }
 }
 
 function isFlashlightActive() {
@@ -895,6 +1053,7 @@ function openSettingsModal() {
   settingsModal.classList.remove('hidden-modal');
   settingsModal.setAttribute('aria-hidden', 'false');
   fogToggle.checked = settings.fogOfWarEnabled;
+  floodToggle.checked = settings.encroachingFloodEnabled;
   playerIconSelect.value = settings.playerIcon;
   expansionToggle.checked = settings.expansionContentEnabled;
 }
@@ -936,12 +1095,19 @@ function render() {
       const supportItem = getSupportItemAt(x, y);
       const hazard = getHazardAt(x, y);
       const isVisible = isTileVisible(x, y);
+      const floodState = getFloodTileState(x, y);
       const adjacentMove = getAdjacentMoveDirection(x, y);
-      const isActionable = isTileActionable(tile, isVisible, adjacentMove);
+      const isActionable = isTileActionable(tile, isVisible, adjacentMove) && floodState !== 'flooded';
       const tileEl = document.createElement('div');
       tileEl.className = isVisible
         ? `tile revealed ${getTileClass(tile, isPlayer, lootItem, supportItem, hazard)}`
         : 'tile hidden';
+      if (isVisible && floodState === 'warning') {
+        tileEl.classList.add(`flood-warning-${state.flood.theme}`);
+      }
+      if (isVisible && floodState === 'flooded') {
+        tileEl.className = `tile revealed flooded-${state.flood.theme}`;
+      }
       if (isActionable && !state.gameOver && !state.won) {
         tileEl.classList.add('tile-actionable');
         tileEl.dataset.move = adjacentMove;
@@ -951,7 +1117,9 @@ function render() {
       }
       tileEl.dataset.x = x;
       tileEl.dataset.y = y;
-      tileEl.textContent = isVisible ? getTileSymbol(tile, isPlayer, lootItem, supportItem, hazard) : '';
+      tileEl.textContent = isVisible && floodState !== 'flooded'
+        ? getTileSymbol(tile, isPlayer, lootItem, supportItem, hazard)
+        : '';
       boardEl.appendChild(tileEl);
     }
   }
@@ -961,6 +1129,7 @@ function render() {
 
 function loadStage(index, loot = totalLoot, health = 3, message = null) {
   clearNextStageTimeout();
+  hideFloodToast();
   currentStageIndex = index;
   state = buildState(index, loot, health);
   isStageTransitioning = false;
@@ -1275,6 +1444,15 @@ function movePlayer(dx, dy) {
     return false;
   }
 
+  if (getFloodTileState(nextX, nextY) === 'flooded') {
+    setMessage(
+      state.flood.theme === 'water'
+        ? 'The water has swallowed that path.'
+        : 'The sand has buried that path.'
+    );
+    return false;
+  }
+
   if (nextTile === TILE.DOOR && state.keys <= 0) {
     setMessage('You need a key first.');
     return false;
@@ -1319,6 +1497,8 @@ function movePlayer(dx, dy) {
   if (!state.gameOver && nextTile !== TILE.EXIT) {
     tickActiveEffects(skippedEffects);
   }
+
+  updateFloodProgress();
 
   render();
   return true;
@@ -1433,6 +1613,14 @@ modalBackdrop.addEventListener('click', closeSettingsModal);
 fogToggle.addEventListener('change', () => {
   settings.fogOfWarEnabled = fogToggle.checked;
   render();
+});
+floodToggle.addEventListener('change', () => {
+  settings.encroachingFloodEnabled = floodToggle.checked;
+  reloadStageForSettings(
+    settings.encroachingFloodEnabled
+      ? `Encroaching flood is back on for stage ${state.stageNumber}.`
+      : `Encroaching flood is off for stage ${state.stageNumber}.`
+  );
 });
 playerIconSelect.addEventListener('change', () => {
   settings.playerIcon = playerIconSelect.value;

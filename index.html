@@ -34,6 +34,7 @@
           </div>
         </section>
         <div class="effect-toast hidden-effects" id="effectStatus" aria-live="polite"></div>
+        <div class="flood-toast hidden-flood-toast" id="floodToast" aria-live="polite"></div>
         <div id="board" aria-label="Dungeon board"></div>
         <div class="touch-controls" aria-label="Touch movement controls">
           <button class="touch-btn touch-up" type="button" data-move="up" aria-label="Move up">▲</button>
@@ -109,6 +110,10 @@
       <label class="toggle-row" for="expansionToggle">
         <span>Expansion Hazards / Items</span>
         <input id="expansionToggle" type="checkbox" checked />
+      </label>
+      <label class="toggle-row" for="floodToggle">
+        <span>Encroaching Flood</span>
+        <input id="floodToggle" type="checkbox" checked />
       </label>
     </div>
   </div>
