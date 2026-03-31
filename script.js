@@ -136,7 +136,6 @@ const MOBILE_VIEWPORT_SIZE = 5;
 const MOBILE_DARKNESS_RADIUS = 1;
 const MOBILE_SWIPE_THRESHOLD = 28;
 const FLOOD_START_STAGE = 4;
-const FLOOD_GRACE_MOVES = 30;
 const FLOOD_EXPANSION_INTERVAL = 2;
 const expansionToggle = document.getElementById('expansionToggle');
 
@@ -702,7 +701,7 @@ function getHazardAt(x, y) {
   return state.hazards.find(item => item.x === x && item.y === y) ?? null;
 }
 
-function createFloodState(stageNumber, grid, reservedKeys, barrierDoors) {
+function createFloodState(stageNumber, grid, reservedKeys, barrierDoors, isLootStage = false) {
   if (stageNumber < FLOOD_START_STAGE) {
     return {
       enabled: false,
@@ -743,10 +742,16 @@ function createFloodState(stageNumber, grid, reservedKeys, barrierDoors) {
   barrierDoors.forEach(protectArea);
   protectArea(exitPosition);
 
+  const graceMoves = stageNumber >= 26
+    ? 45
+    : stageNumber >= 16
+      ? 35
+      : 25;
+
   return {
     enabled: true,
     theme: stageNumber % 2 === 1 ? 'water' : 'sand',
-    graceMoves: settings.encroachingFloodEnabled ? FLOOD_GRACE_MOVES : Infinity,
+    graceMoves: settings.encroachingFloodEnabled && !isLootStage ? graceMoves : Infinity,
     expansionInterval: FLOOD_EXPANSION_INTERVAL,
     protectedKeys,
     announced: false
@@ -815,7 +820,13 @@ function buildState(index, loot = totalLoot, health = 3) {
     lootItems,
     supportItems,
     hazards,
-    flood: createFloodState(stageNumber, grid, reservedKeys, stageData.barrierDoors),
+    flood: createFloodState(
+      stageNumber,
+      grid,
+      reservedKeys,
+      stageData.barrierDoors,
+      stageData.method === 'template-looting'
+    ),
     effects: {
       flashlightMoves: 0,
       shieldCharges: 0
