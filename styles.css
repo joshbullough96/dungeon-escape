@@ -60,14 +60,22 @@ button,
   display: flex;
   flex-direction: column;
   gap: 12px;
-  align-items: flex-start;
   padding: 18px 20px;
   background: var(--panel-2);
   border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 
-.title-wrap {
+.topbar-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
   width: 100%;
+}
+
+.title-wrap {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .title-wrap h1 {
@@ -88,6 +96,13 @@ button,
   width: 100%;
 }
 
+.topbar-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
 .stat {
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.08);
@@ -98,7 +113,6 @@ button,
 }
 
 .settings-btn {
-  align-self: stretch;
   min-height: 44px;
 }
 
@@ -549,6 +563,15 @@ button:disabled {
     padding: 14px;
   }
 
+  .topbar-main {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .topbar-actions {
+    width: 100%;
+  }
+
   .content {
     grid-template-columns: 1fr;
   }
@@ -615,6 +638,11 @@ button:disabled {
   .stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
+  }
+
+  .topbar-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 
   .stat,

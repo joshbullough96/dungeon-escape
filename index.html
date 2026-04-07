@@ -9,9 +9,16 @@
 <body>
   <div class="game-shell">
     <div class="topbar">
-      <div class="title-wrap">
-        <h1>Dungeon Escape</h1>
-        <p>Find the keys, unlock the doors, and reach the exit.</p>
+      <div class="topbar-main">
+        <div class="title-wrap">
+          <h1>Dungeon Escape</h1>
+          <p>Find the keys, unlock the doors, and reach the exit.</p>
+        </div>
+
+        <div class="topbar-actions">
+          <button id="settingsBtn" class="secondary settings-btn" type="button">Settings</button>
+          <button id="restartBtn" class="settings-btn" type="button">Restart</button>
+        </div>
       </div>
 
       <div class="stats">
@@ -20,8 +27,7 @@
         <div class="stat">Health: <strong id="health">3</strong></div>
         <div class="stat">Keys: <strong id="keyCount">0</strong></div>
         <div class="stat">Loot: <strong id="loot">0</strong></div>
-        <button id="restartBtn" class="settings-btn" type="button">Restart</button>
-        <button id="settingsBtn" class="secondary settings-btn" type="button">Settings</button>
+        <div class="stat">Flood: <strong id="floodStatus">Off</strong></div>
       </div>
     </div>
 

@@ -177,11 +177,12 @@ If enabled:
 - does not apply on looting template stages
 - uses a grace period before the dungeon begins closing in
 - after the grace period, the outer edge warns first
-- then the enclosing wave advances every `2` moves
+- then the enclosing wave advances every `3` moves
 
 Current grace periods:
 
-- stages `4-15`: `25` moves
+- stages `1-5`: `20` moves
+- stages `6-15`: `25` moves
 - stages `16-25`: `35` moves
 - stages `26-30`: `45` moves
 - looting template stages: infinite grace period
@@ -194,11 +195,11 @@ Theme by stage:
 Flood behavior:
 
 - warning tiles tint before becoming blocked
-- flooded tiles become inaccessible
-- the player’s current tile is protected
-- door tiles and their adjacent approach tiles are protected
-- exit tile and its adjacent approach tiles are protected
-- reserved progression path tiles are protected
+- doors and exits stay visible and usable
+- other objects can be covered and disappear when reached by flood or sand
+- flooded tiles are still traversable
+- ending a move on a flooded tile costs `1` health
+- keys, loot, support items, and hazards can be lost if flood or sand reaches them
 
 When the grace period ends, a toast warns the player that the dungeon is closing in from the outside.
 
